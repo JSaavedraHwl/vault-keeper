@@ -31,6 +31,8 @@ function randomItems(seed: number, n: number): NormalizedItem[] {
       locked: r() < 0.1,
       equipped: r() < 0.05,
       power: r() < 0.1 ? null : Math.floor(r() * 400),
+      // Algunas piezas no informan nivel; el resto, de 0 a 5.
+      ...(r() < 0.8 && { gearTier: Math.floor(r() * 6) }),
     };
     const roll = r();
     if (roll < 0.45) {

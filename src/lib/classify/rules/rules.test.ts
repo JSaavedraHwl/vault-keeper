@@ -60,7 +60,7 @@ describe("fronteras exactas de los umbrales", () => {
 
   it("diferencia == surplusGap es basura; menos, archivo", () => {
     const config = configWith({
-      duplicates: { perkWeight: 10, statWeight: 1, powerWeight: 0, surplusGap: 5 },
+      duplicates: { perkWeight: 10, statWeight: 1, powerWeight: 0, tierWeight: 0, surplusGap: 5 },
     });
     const best = makeItem({ hash: 11, stats: stat(15) });
     const exact = makeItem({ hash: 11, stats: stat(10) }); // gap 5
@@ -133,6 +133,119 @@ describe("armaduras", () => {
     });
     const r = one(makeArmor([8, 8, 8, 8, 8, 8], { classType: "hunter" }), { profile });
     expect(r.verdict).toBe("archive");
+  });
+});
+
+describe("armaduras por nivel de pieza (gearTier)", () => {
+  // Un total típico de cada nivel, según el alijo real: N1≈55, N2≈60, N3≈66, N4≈72, N5=75.
+  const piece = (tier: number, total: number, over = {}) => {
+    const base = Math.floor(total / 6);
+    const rest = total - base * 6;
+    return makeArmor([base + rest, base, base, base, base, base], { gearTier: tier, ...over });
+  };
+
+  it.each([
+    [1, 55, "junk"],
+    [2, 60, "junk"],
+    [2, 63, "junk"],
+    [3, 66, "archive"],
+    [3, 69, "archive"],
+    [4, 72, "keep"],
+    [4, 75, "keep"],
+    [5, 75, "keep"],
+  ] as const)("nivel %i con total %i → %s", (tier, total, verdict) => {
+    expect(one(piece(tier, total)).verdict).toBe(verdict);
+  });
+
+  it("un total excepcional se conserva aunque el nivel sea bajo", () => {
+    const r = one(piece(2, 88));
+    expect(r.verdict).toBe("keep");
+    expect(r.reason).toMatch(/excepcional/i);
+    expect(one(piece(2, 75)).verdict).toBe("junk"); // 75 < 76: no es excepcional
+    expect(one(piece(2, 76)).verdict).toBe("keep"); // frontera exacta
+  });
+
+  it("el nivel manda sobre el total: nivel 1 con total alto sigue siendo basura", () => {
+    expect(one(piece(1, 70)).verdict).toBe("junk");
+  });
+
+  it("sin nivel (0 o ausente) se usa el total, como antes", () => {
+    expect(one(piece(0, 50)).verdict).toBe("junk");
+    expect(one(piece(0, 72)).verdict).toBe("keep");
+    expect(one(makeArmor([10, 10, 10, 10, 10, 9])).verdict).toBe("junk"); // sin gearTier
+  });
+
+  it("nivel intermedio con stats prioritarias bajas → revisar", () => {
+    const profile = profileWith({
+      classes: {
+        ...DEFAULT_PROFILE.classes,
+        titan: { ...DEFAULT_PROFILE.classes.titan, armorStatPriority: ["health", "class"] },
+      },
+    });
+    const item = makeArmor([30, 2, 2, 20, 6, 6], { gearTier: 3 }); // 66, salud+clase = 4
+    expect(one(item, { profile }).verdict).toBe("needs_review");
+  });
+
+  it("nivel alto con stats prioritarias bajas → archivar, no conservar sin más", () => {
+    const profile = profileWith({
+      classes: {
+        ...DEFAULT_PROFILE.classes,
+        titan: { ...DEFAULT_PROFILE.classes.titan, armorStatPriority: ["health", "class"] },
+      },
+    });
+    const item = makeArmor([30, 2, 2, 24, 8, 6], { gearTier: 5 }); // 72
+    expect(one(item, { profile }).verdict).toBe("archive");
+  });
+
+  it("el mínimo propio de la clase descarta piezas aunque su nivel sea alto", () => {
+    const profile = profileWith({
+      classes: { ...DEFAULT_PROFILE.classes, titan: { ...DEFAULT_PROFILE.classes.titan, minArmorTotal: 73 } },
+    });
+    expect(one(piece(4, 72), { profile }).verdict).toBe("junk");
+  });
+
+  it("armadura sin ninguna stat informada → revisar, no basura", () => {
+    const item = makeArmor([0, 0, 0, 0, 0, 0], { gearTier: 0 });
+    const r = one(item);
+    expect(r.verdict).toBe("needs_review");
+    expect(r.reason).toMatch(/sin|no tiene stats/i);
+  });
+
+  it("reproduce el alijo real (421 armaduras): el nivel ordena el resultado", () => {
+    // Distribución observada por nivel → [nivel, total, cantidad]
+    const observed: [number, number, number][] = [
+      [1, 55, 9], [1, 53, 5], [2, 59, 14], [2, 60, 19], [2, 62, 16],
+      [3, 65, 41], [3, 66, 53], [3, 67, 47], [3, 68, 22],
+      [4, 72, 16], [4, 73, 14], [4, 74, 15], [5, 75, 18], [5, 85, 7],
+    ];
+    const items = observed.flatMap(([tier, total, n]) => Array.from({ length: n }, () => piece(tier, total)));
+    const counts = { junk: 0, archive: 0, keep: 0, needs_review: 0 };
+    for (const r of classifyItems(items)) counts[r.verdict] += 1;
+    expect(counts).toEqual({ junk: 63, archive: 163, keep: 70, needs_review: 0 });
+  });
+});
+
+describe("duplicados: el nivel de la pieza pesa", () => {
+  it("a igual arma, la copia de mayor nivel es la mejor", () => {
+    const low = makeItem({ hash: 21, gearTier: 3 });
+    const high = makeItem({ hash: 21, gearTier: 5 });
+    const [rLow, rHigh] = classifyItems([low, high]);
+    expect(rHigh.verdict).toBe("keep");
+    expect(rLow.verdict).toBe("junk");
+  });
+
+  it("un perk favorito compensa un nivel", () => {
+    const profile = profileWith({ favoredPerks: ["Torrente"] });
+    const higherTier = makeItem({ hash: 22, gearTier: 4 });
+    const withPerk = makeItem({ hash: 22, gearTier: 3, perks: [{ name: "Torrente" }] });
+    const [a, b] = classifyItems([higherTier, withPerk], { profile });
+    // Empatan (10 puntos cada uno): ninguna es basura, solo una se archiva.
+    expect([a.verdict, b.verdict]).not.toContain("junk");
+  });
+
+  it("sin gearTier el comportamiento anterior no cambia", () => {
+    const [, b] = classifyItems([makeItem({ hash: 23 }), makeItem({ hash: 23 })]);
+    expect(b.verdict).toBe("archive");
   });
 });
 

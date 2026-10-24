@@ -12,9 +12,18 @@ export interface ClassifyConfig {
   exceptions: { hashes: number[]; names: string[] };
   lowRarity: { tiers: ItemTier[] };
   armor: {
-    /** Total de stats por debajo del cual la armadura es basura. */
+    /** Piezas con nivel (`gearTier`): el nivel manda sobre el total, que depende de él. */
+    byTier: {
+      /** Nivel por debajo del cual la pieza es basura (nivel 1 y 2 con 3). */
+      junkBelowTier: number;
+      /** Nivel desde el cual la pieza se conserva. */
+      keepFromTier: number;
+      /** Total a partir del cual una pieza se conserva sea cual sea su nivel. */
+      exceptionalTotal: number;
+    };
+    /** Armaduras sin nivel (antiguas): total de stats por debajo del cual es basura. */
     junkBelowTotal: number;
-    /** Total desde el cual la armadura se conserva. */
+    /** Armaduras sin nivel: total desde el cual se conserva. */
     keepFromTotal: number;
     /** Suma mínima de las stats prioritarias de la clase para considerarla útil. */
     priorityMinSum: number;
@@ -28,6 +37,8 @@ export interface ClassifyConfig {
     statWeight: number;
     /** Puntos por cada punto de poder. */
     powerWeight: number;
+    /** Puntos por cada nivel de la pieza (`gearTier`): a igual hash, el nivel más alto gana. */
+    tierWeight: number;
     /** Diferencia mínima de puntaje para marcar una copia como basura (si no, archive). */
     surplusGap: number;
   };
@@ -60,12 +71,13 @@ export const DEFAULT_CONFIG: ClassifyConfig = {
   exceptions: { hashes: [], names: [] },
   lowRarity: { tiers: ["common", "uncommon", "rare"] },
   armor: {
+    byTier: { junkBelowTier: 3, keepFromTier: 4, exceptionalTotal: 76 },
     junkBelowTotal: 60,
     keepFromTotal: 68,
     priorityMinSum: 40,
     disabledClassVerdict: "archive",
   },
-  duplicates: { perkWeight: 10, statWeight: 0.2, powerWeight: 0.05, surplusGap: 3 },
+  duplicates: { perkWeight: 10, statWeight: 0.2, powerWeight: 0.05, tierWeight: 10, surplusGap: 3 },
   obsolete: { hashes: [], namePatterns: [], belowPower: null, verdict: "archive" },
   otherItems: { verdict: "keep" },
 };

@@ -9,7 +9,12 @@ export function scoreWeapon(item: NormalizedItem, config: ClassifyConfig, profil
   const perkMatches = item.perks.filter((p) => favored.has(p.name.toLocaleLowerCase("es"))).length;
   const statsTotal = item.stats.reduce((sum, s) => sum + s.value, 0);
   const d = config.duplicates;
-  return perkMatches * d.perkWeight + statsTotal * d.statWeight + (item.power ?? 0) * d.powerWeight;
+  return (
+    perkMatches * d.perkWeight +
+    statsTotal * d.statWeight +
+    (item.power ?? 0) * d.powerWeight +
+    (item.gearTier ?? 0) * d.tierWeight
+  );
 }
 
 /** Agrupa las armas por hash y ordena cada grupo de mejor a peor copia. */

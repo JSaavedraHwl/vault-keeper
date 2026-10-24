@@ -313,6 +313,7 @@ function Row({ item, result, manual, alwaysKeep, onVerdict, onAlwaysKeep }: RowP
         </p>
         <p className="text-xs text-zinc-400">
           {item.type}
+          {item.gearTier !== undefined && item.gearTier > 0 && ` · nivel ${item.gearTier}`}
           {item.armorTotal !== undefined && ` · total ${item.armorTotal}`}
         </p>
       </div>

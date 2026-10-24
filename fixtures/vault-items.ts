@@ -90,6 +90,10 @@ export const vaultFixtures: NormalizedItem[] = [
     slot: "legs",
   }), // archive (exótico)
   armor("a207", "Casco débil con candado", [2, 2, 2, 2, 2, 2], { locked: true }), // keep (candado)
+  // Armaduras con nivel de pieza (gearTier)
+  armor("a208", "Casco de nivel 1", [10, 9, 9, 9, 9, 9], { gearTier: 1 }), // junk (nivel bajo)
+  armor("a209", "Casco de nivel 3", [12, 11, 11, 11, 11, 10], { gearTier: 3 }), // archive (nivel intermedio)
+  armor("a210", "Casco de nivel 4", [13, 12, 12, 12, 12, 11], { gearTier: 4 }), // keep (nivel alto)
   // Otros ítems
   {
     ...weapon("o301", "Núcleo de mejora", { tier: "common", kind: "other", type: "Material" }),

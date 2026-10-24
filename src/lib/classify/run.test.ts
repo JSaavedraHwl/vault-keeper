@@ -40,6 +40,9 @@ describe("análisis del alijo de ejemplo", () => {
       a205: "keep",
       a206: "archive", // exótico
       a207: "keep", // candado
+      a208: "junk", // nivel 1
+      a209: "archive", // nivel 3
+      a210: "keep", // nivel 4
       o301: "keep",
       o302: "keep",
     };
@@ -57,7 +60,7 @@ describe("análisis del alijo de ejemplo", () => {
     expect(summary.total).toBe(vaultFixtures.length);
     expect(Object.values(summary.counts).reduce((a, b) => a + b, 0)).toBe(summary.total);
     expect(summary.slotsFreed).toBe(summary.counts.junk);
-    expect(summary.counts.junk).toBe(5);
+    expect(summary.counts.junk).toBe(6);
   });
 
   it("cada resultado explica su razón", () => {
