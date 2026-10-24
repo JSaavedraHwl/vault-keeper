@@ -53,8 +53,8 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
         {(Object.keys(CLASS_LABELS) as ClassKey[]).map((key) => {
           const c = profile.classes[key];
           return (
-            <fieldset key={key} className="space-y-3 rounded border border-zinc-700 bg-zinc-900 p-4">
-              <legend className="px-1 font-semibold">{CLASS_LABELS[key]}</legend>
+            <fieldset key={key} className="panel space-y-3.5 p-4">
+              <legend className="display px-1.5 text-xl text-white">{CLASS_LABELS[key]}</legend>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={c.enabled} onChange={(e) => setClass(key, { enabled: e.target.checked })} />
                 Juego con esta clase
@@ -62,7 +62,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
 
               <div className={c.enabled ? "space-y-3" : "pointer-events-none space-y-3 opacity-40"}>
                 <div>
-                  <p className="mb-1 text-xs text-zinc-400">Actividades</p>
+                  <p className="eyebrow mb-1.5">Actividades</p>
                   <div className="flex flex-wrap gap-3 text-sm">
                     {ACTIVITIES.map((a) => (
                       <label key={a} className="flex items-center gap-1">
@@ -78,7 +78,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
                 </div>
 
                 <div>
-                  <p className="mb-1 text-xs text-zinc-400">Stats prioritarias (máx. 3)</p>
+                  <p className="eyebrow mb-1.5">Stats prioritarias (máx. 3)</p>
                   <div className="grid grid-cols-2 gap-1 text-sm">
                     {ARMOR_STAT_KEYS.map((s) => {
                       const checked = c.armorStatPriority.includes(s);
@@ -98,7 +98,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
                 </div>
 
                 <label className="block text-sm">
-                  <span className="mb-1 block text-xs text-zinc-400">Total mínimo de stats (vacío = global)</span>
+                  <span className="eyebrow mb-1.5 block">Total mínimo de stats (vacío = global)</span>
                   <input
                     type="number"
                     min={0}
@@ -107,17 +107,17 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
                     onChange={(e) =>
                       setClass(key, { minArmorTotal: e.target.value === "" ? undefined : Number(e.target.value) })
                     }
-                    className="w-24 rounded border border-zinc-600 bg-zinc-950 px-2 py-1"
+                    className="field w-24"
                   />
                 </label>
 
                 <label className="block text-sm">
-                  <span className="mb-1 block text-xs text-zinc-400">Estilo de juego (nota)</span>
+                  <span className="eyebrow mb-1.5 block">Estilo de juego (nota)</span>
                   <input
                     value={c.playstyle}
                     maxLength={300}
                     onChange={(e) => setClass(key, { playstyle: e.target.value })}
-                    className="w-full rounded border border-zinc-600 bg-zinc-950 px-2 py-1"
+                    className="field w-full"
                   />
                 </label>
               </div>
@@ -126,8 +126,8 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
         })}
       </section>
 
-      <section className="rounded border border-zinc-700 bg-zinc-900 p-4">
-        <h2 className="mb-1 font-semibold">Armas que usas por actividad</h2>
+      <section className="panel p-5">
+        <h2 className="display mb-1 text-xl text-white">Armas que usas por actividad</h2>
         <p className="mb-3 text-xs text-zinc-400">
           Si marcas alguna, las armas de otros tipos se sugerirán como «archivar». Sin marcar nada, no se aplica.
         </p>
@@ -136,7 +136,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
             const selected = profile.weaponPreferences[a] ?? [];
             return (
               <div key={a}>
-                <p className="mb-1 text-sm font-medium">{ACTIVITY_LABELS[a]}</p>
+                <p className="display mb-1.5 text-lg text-gold-bright">{ACTIVITY_LABELS[a]}</p>
                 <div className="max-h-56 space-y-1 overflow-y-auto text-sm">
                   {weaponTypes.map((t) => (
                     <label key={t} className="flex items-center gap-1">
@@ -155,8 +155,8 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
         </div>
       </section>
 
-      <section className="rounded border border-zinc-700 bg-zinc-900 p-4">
-        <h2 className="mb-1 font-semibold">Perks que valoras</h2>
+      <section className="panel p-5">
+        <h2 className="display mb-1 text-xl text-white">Perks que valoras</h2>
         <p className="mb-2 text-xs text-zinc-400">
           Uno por línea, con el nombre exacto del juego. Ayudan a elegir la mejor copia de un arma duplicada.
         </p>
@@ -164,7 +164,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
           value={perksText}
           onChange={(e) => setPerksText(e.target.value)}
           rows={5}
-          className="w-full rounded border border-zinc-600 bg-zinc-950 px-2 py-1 text-sm"
+          className="field w-full"
         />
       </section>
 
@@ -172,7 +172,7 @@ export function ProfileForm({ initial, weaponTypes }: { initial: UsageProfile; w
         <button
           onClick={save}
           disabled={pending}
-          className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          className="btn btn-gold"
         >
           {pending ? "Guardando…" : "Guardar perfil"}
         </button>

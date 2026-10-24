@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import type { EquipOutcome } from "@/lib/actions/equip-service";
 import type { ActionsError } from "@/lib/actions/events";
 import {
@@ -22,21 +22,11 @@ import {
   type GearRow,
   type WeaponSlot,
 } from "@/lib/inventory/gear-filter";
-import { AMMO_LABELS, AMMO_ORDER, type Ammo, type CharacterInfo, type ItemTier, type NormalizedItem } from "@/lib/inventory/types";
-
-const AMMO_STYLES: Record<Ammo, string> = {
-  primary: "border-zinc-300 text-zinc-200",
-  special: "border-green-500 text-green-300",
-  heavy: "border-purple-400 text-purple-300",
-};
+import { AMMO_LABELS, AMMO_ORDER, type CharacterInfo, type NormalizedItem } from "@/lib/inventory/types";
+import { ElementMark, ItemIcon } from "@/components/item-bits";
+import { AMMO_COLORS, CHAMPION_COLORS } from "@/lib/ui/theme";
 
 const CLASS_LABELS: Record<CharacterInfo["classType"], string> = { titan: "Titán", hunter: "Cazador", warlock: "Hechicero" };
-
-const CHAMPION_STYLES: Record<Champion, { solid: string; dashed: string }> = {
-  barrier: { solid: "border-orange-500 bg-orange-950 text-orange-200", dashed: "border-dashed border-orange-700 text-orange-400" },
-  unstoppable: { solid: "border-red-500 bg-red-950 text-red-200", dashed: "border-dashed border-red-800 text-red-400" },
-  overload: { solid: "border-sky-500 bg-sky-950 text-sky-200", dashed: "border-dashed border-sky-800 text-sky-400" },
-};
 
 const VIA_LABELS: Record<ChampionVia, string> = {
   item: "de serie",
@@ -45,13 +35,7 @@ const VIA_LABELS: Record<ChampionVia, string> = {
   artifact: "por una ventaja de artefacto activa",
 };
 
-const TIER_BORDER: Record<ItemTier, string> = {
-  common: "border-zinc-500",
-  uncommon: "border-green-600",
-  rare: "border-blue-500",
-  legendary: "border-purple-500",
-  exotic: "border-yellow-400",
-};
+const SLOT_NUMERAL: Record<WeaponSlot, string> = { kinetic: "I", energy: "II", power: "III" };
 
 type Equipping =
   | { state: "idle" }
@@ -59,14 +43,15 @@ type Equipping =
   | { state: "done"; outcome: EquipOutcome }
   | { state: "error"; error: ActionsError };
 
-export function GearView({ data }: { data: GearData }) {
+export function GearView({ data, initialSelectedId }: { data: GearData; initialSelectedId?: string }) {
   const router = useRouter();
   const [refreshing, startRefresh] = useTransition();
   const { items, characters, artifact } = data;
 
   const [characterId, setCharacterId] = useState(characters[0]?.id ?? "");
   const [filters, setFilters] = useState<GearFilters>(NO_FILTERS);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // `initialSelectedId` deja la pantalla con un arma ya elegida (vista previa y pruebas).
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const [equipping, setEquipping] = useState<Equipping>({ state: "idle" });
   const [simulateOnly, setSimulateOnly] = useState(false);
 
@@ -160,25 +145,24 @@ export function GearView({ data }: { data: GearData }) {
   }
 
   return (
-    <main className="mx-auto max-w-7xl p-4 pb-40">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-2xl font-bold">Equipar</h1>
+    <main className="rise mx-auto w-full max-w-7xl p-4 pb-48">
+      <header className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-2">
+        <div className="mr-auto">
+          <p className="eyebrow mb-1.5">Prepara tu equipo</p>
+          <h1 className="page-title">Equipar</h1>
+        </div>
         <span className="text-xs text-zinc-500" title="Los datos son una foto del momento en que se leyó tu cuenta">
           Datos de {age}
         </span>
-        <button
-          onClick={reload}
-          disabled={refreshing}
-          className="rounded border border-zinc-600 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-50"
-        >
+        <button onClick={reload} disabled={refreshing} className="btn btn-sm">
           {refreshing ? "Actualizando…" : "Actualizar"}
         </button>
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-zinc-400">Personaje:</span>
+          <span className="eyebrow">Personaje</span>
           <select
             value={characterId}
             onChange={(e) => { setCharacterId(e.target.value); setSelectedId(null); setEquipping({ state: "idle" }); }}
-            className="rounded border border-zinc-600 bg-zinc-900 px-2 py-1.5"
+            className="field"
           >
             {characters.map((c) => (
               <option key={c.id} value={c.id}>{CLASS_LABELS[c.classType]} · poder {c.light}</option>
@@ -193,11 +177,17 @@ export function GearView({ data }: { data: GearData }) {
           const current = equipped[slot];
           const target = equipPlan?.slot === slot && !equipPlan.alreadyEquipped;
           return (
-            <div key={slot} className={`rounded border p-3 ${target ? "border-green-500 bg-green-950/30 ring-1 ring-green-500" : "border-zinc-700 bg-zinc-900"}`}>
-              <p className="text-xs uppercase tracking-wide text-zinc-400">{SLOT_LABELS[slot].number} · {SLOT_LABELS[slot].name}</p>
-              {current ? <MiniWeapon item={current} rows={rows[slot]} /> : <p className="mt-1 text-sm text-zinc-500">Vacía</p>}
+            <div
+              key={slot}
+              className={`panel p-3.5 transition-shadow ${target ? "!border-green-400/70 shadow-[0_0_34px_-6px_rgba(79,200,131,0.65)]" : ""}`}
+            >
+              <p className="eyebrow flex items-center gap-2">
+                <span className="display text-base text-gold">{SLOT_NUMERAL[slot]}</span>
+                {SLOT_LABELS[slot].number} · {SLOT_LABELS[slot].name}
+              </p>
+              {current ? <MiniWeapon item={current} rows={rows[slot]} /> : <p className="mt-2 text-sm text-zinc-500">Vacía</p>}
               {target && selected && (
-                <p className="mt-2 text-xs text-green-300">↳ Aquí irá: <strong>{selected.name}</strong></p>
+                <p className="mt-2.5 border-t border-green-400/30 pt-2 text-xs text-green-300">↳ Aquí irá: <strong className="text-green-200">{selected.name}</strong></p>
               )}
             </div>
           );
@@ -205,65 +195,64 @@ export function GearView({ data }: { data: GearData }) {
       </section>
 
       {/* Artefacto */}
-      <p className="mb-3 text-xs text-zinc-400">
-        Artefacto{artifact.name ? ` «${artifact.name}»` : ""}: ventajas de campeón activas en este personaje →{" "}
-        {activeChampionPerks.length > 0 ? activeChampionPerks.map((p) => p.name).join(" · ") : "ninguna"}
+      <p className="panel-quiet mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-xs text-zinc-400">
+        <span className="eyebrow !text-gold">Artefacto{artifact.name ? ` «${artifact.name}»` : ""}</span>
+        <span>ventajas de campeón activas en este personaje →</span>
+        <span className="text-zinc-200">{activeChampionPerks.length > 0 ? activeChampionPerks.map((p) => p.name).join(" · ") : "ninguna"}</span>
         {artifact.unparsed.length > 0 && (
           <span className="text-yellow-300" title={artifact.unparsed.join(", ")}> · {artifact.unparsed.length} ventaja(s) que no pude interpretar</span>
         )}
       </p>
 
       {/* Filtros */}
-      <section aria-label="Filtros" className="mb-4 space-y-3 rounded border border-zinc-700 bg-zinc-900 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-zinc-300">Rompe:</span>
-          {CHAMPIONS.map((c) => {
-            const on = filters.champions.includes(c);
-            return (
-              <button
-                key={c}
-                onClick={() => toggleChampion(c)}
-                aria-pressed={on}
-                className={`rounded border px-3 py-1 text-sm ${on ? CHAMPION_STYLES[c].solid : "border-zinc-600 text-zinc-300 hover:bg-zinc-800"}`}
-              >
-                {CHAMPION_LABELS[c]}
-              </button>
-            );
-          })}
-          <label className="ml-2 flex items-center gap-1 text-xs text-zinc-300" title="Armas que lo harían si activaras la ventaja de artefacto que ahora no tienes activa">
+      <section aria-label="Filtros" className="panel mb-6 space-y-3.5 p-4">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="eyebrow mr-1">Rompe</span>
+          {CHAMPIONS.map((c) => (
+            <button
+              key={c}
+              onClick={() => toggleChampion(c)}
+              aria-pressed={filters.champions.includes(c)}
+              className="chip"
+              style={{ "--chip": CHAMPION_COLORS[c] } as CSSProperties}
+            >
+              {CHAMPION_LABELS[c]}
+            </button>
+          ))}
+          <label className="ml-2 flex cursor-pointer items-center gap-2 text-xs text-zinc-300" title="Armas que lo harían si activaras la ventaja de artefacto que ahora no tienes activa">
             <input type="checkbox" checked={filters.includePotential} onChange={(e) => setFilters((f) => ({ ...f, includePotential: e.target.checked }))} />
             incluir las que lo harían activando una ventaja
           </label>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <select value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Tipo de arma">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} className="field" aria-label="Tipo de arma">
             <option value="">Todos los tipos</option>
             {types.map((t) => <option key={t}>{t}</option>)}
           </select>
-          <select value={filters.element} onChange={(e) => setFilters((f) => ({ ...f, element: e.target.value }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Elemento">
+          <select value={filters.element} onChange={(e) => setFilters((f) => ({ ...f, element: e.target.value }))} className="field" aria-label="Elemento">
             <option value="">Todos los elementos</option>
             {elements.map((t) => <option key={t}>{t}</option>)}
           </select>
-          <select value={filters.ammo} onChange={(e) => setFilters((f) => ({ ...f, ammo: e.target.value as GearFilters["ammo"] }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Munición">
+          <select value={filters.ammo} onChange={(e) => setFilters((f) => ({ ...f, ammo: e.target.value as GearFilters["ammo"] }))} className="field" aria-label="Munición">
             <option value="">Toda la munición</option>
             {AMMO_ORDER.map((a) => <option key={a} value={a}>Munición {AMMO_LABELS[a].toLowerCase()}</option>)}
           </select>
-          <select value={filters.where} onChange={(e) => setFilters((f) => ({ ...f, where: e.target.value as GearFilters["where"] }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Ubicación">
+          <select value={filters.where} onChange={(e) => setFilters((f) => ({ ...f, where: e.target.value as GearFilters["where"] }))} className="field" aria-label="Ubicación">
             <option value="all">Todas las ubicaciones</option>
             <option value="vault">Solo alijo</option>
             <option value="selected">Solo en {label(characterId)}</option>
             <option value="others">En otros personajes</option>
           </select>
-          <input type="search" value={filters.query} onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))} placeholder="Buscar por nombre…" className="w-48 rounded border border-zinc-600 bg-zinc-950 px-2 py-1" />
+          <input type="search" value={filters.query} onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))} placeholder="Buscar por nombre…" className="field w-52" />
           {filtering && (
-            <button onClick={() => setFilters({ ...NO_FILTERS, includePotential: filters.includePotential })} className="text-xs text-blue-400 hover:underline">Limpiar filtros</button>
+            <button onClick={() => setFilters({ ...NO_FILTERS, includePotential: filters.includePotential })} className="link text-xs">Limpiar filtros</button>
           )}
-          <span className="ml-auto text-xs text-zinc-500">{total} armas{refreshing ? " · actualizando…" : ""}</span>
+          <span className="display ml-auto text-sm text-zinc-400"><span className="text-lg text-white">{total}</span> armas{refreshing ? " · actualizando…" : ""}</span>
         </div>
       </section>
 
       {/* Las tres ranuras, separadas */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {WEAPON_SLOT_ORDER.map((slot) => (
           <SlotColumn
             key={slot}
@@ -279,39 +268,40 @@ export function GearView({ data }: { data: GearData }) {
 
       {/* Selección */}
       {selected && equipPlan && character && (
-        <aside aria-label="Selección" className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-700 bg-zinc-950/95 p-3 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-4">
-            <div className="min-w-[14rem] flex-1 text-sm">
-              <p className="font-semibold">{selected.name} <span className="font-normal text-zinc-400">· {selected.type}{selected.element ? ` · ${selected.element}` : ""}</span></p>
-              <p className="text-zinc-300">
-                Irá a la <strong>{SLOT_LABELS[equipPlan.slot].number.toLowerCase()} ({SLOT_LABELS[equipPlan.slot].name.toLowerCase()})</strong> de tu {CLASS_LABELS[character.classType]}
-                {equipPlan.replaces ? <> y reemplazará a <strong>{equipPlan.replaces.name}</strong>.</> : equipPlan.alreadyEquipped ? " (ya la lleva equipada)." : ", que ahora no lleva nada ahí."}
+        <aside aria-label="Selección" className="fixed inset-x-0 bottom-0 z-20 border-t border-gold/30 bg-zinc-950/92 p-4 backdrop-blur-md shadow-[0_-20px_50px_-20px_rgba(0,0,0,0.9)]">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent opacity-70" />
+          <div className="mx-auto flex max-w-7xl flex-wrap items-start gap-5">
+            <div className="min-w-[16rem] flex-1 text-sm">
+              <p className="display text-lg leading-tight text-white">{selected.name} <span className="text-sm font-medium normal-case tracking-normal text-zinc-400">· {selected.type}{selected.element ? ` · ${selected.element}` : ""}</span></p>
+              <p className="mt-1 text-zinc-300">
+                Irá a la <strong className="text-gold-bright">{SLOT_LABELS[equipPlan.slot].number.toLowerCase()} ({SLOT_LABELS[equipPlan.slot].name.toLowerCase()})</strong> de tu {CLASS_LABELS[character.classType]}
+                {equipPlan.replaces ? <> y reemplazará a <strong className="text-white">{equipPlan.replaces.name}</strong>.</> : equipPlan.alreadyEquipped ? " (ya la lleva equipada)." : ", que ahora no lleva nada ahí."}
               </p>
               {/* Lo que impide equiparla (rojo) y la información que no impide nada (gris), por separado */}
               {equipPlan.blockers.map((p) => (
-                <p key={p} className="text-xs text-red-300">⛔ {p}</p>
+                <p key={p} className="mt-1 text-xs text-red-300">⛔ {p}</p>
               ))}
               {equipPlan.notes.map((p) => (
-                <p key={p} className="text-xs text-zinc-400">ℹ {p}</p>
+                <p key={p} className="mt-1 text-xs text-zinc-400">ℹ {p}</p>
               ))}
               {equipPlan.exoticConflict && (
-                <p className="text-xs text-zinc-400">
+                <p className="mt-1 text-xs text-zinc-400">
                   ¿Ya no la llevas equipada? Estos datos son de {age}.{" "}
-                  <button onClick={reload} disabled={refreshing} className="text-blue-400 underline disabled:opacity-50">
+                  <button onClick={reload} disabled={refreshing} className="link disabled:opacity-50">
                     Actualizar y volver a comprobar
                   </button>
                 </p>
               )}
-              <p className="mt-1 text-xs text-zinc-500">Equipar solo funciona en una zona social, en órbita o sin conexión, no en medio de una actividad.</p>
+              <p className="mt-1.5 text-xs text-zinc-500">Equipar solo funciona en una zona social, en órbita o sin conexión, no en medio de una actividad.</p>
             </div>
 
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-col items-end gap-2.5">
+              <div className="flex flex-wrap items-center justify-end gap-2.5">
                 <button
                   disabled={!equipPlan.canEquip || equipping.state === "running"}
                   onClick={() => equip("equip")}
                   title={equipPlan.canEquip ? "" : equipPlan.blockers[0] ?? "Ya está equipada"}
-                  className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-40"
+                  className="btn btn-go"
                 >
                   {equipping.state === "running" ? "Trabajando…" : `Equipar en ${CLASS_LABELS[character.classType]}`}
                 </button>
@@ -319,13 +309,13 @@ export function GearView({ data }: { data: GearData }) {
                   disabled={!equipPlan.canSend || equipping.state === "running"}
                   onClick={() => equip("send")}
                   title={equipPlan.alreadyThere ? "Ya está en el personaje" : equipPlan.sendBlockers[0] ?? "La deja en el inventario del personaje, sin equiparla"}
-                  className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40"
+                  className="btn btn-info"
                 >
                   Mandar al inventario
                 </button>
-                <button onClick={() => { setSelectedId(null); setEquipping({ state: "idle" }); }} className="rounded px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800">Cerrar</button>
+                <button onClick={() => { setSelectedId(null); setEquipping({ state: "idle" }); }} className="btn btn-quiet">Cerrar</button>
               </div>
-              <label className="flex items-center gap-1 text-xs text-zinc-400">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-400">
                 <input type="checkbox" checked={simulateOnly} onChange={(e) => setSimulateOnly(e.target.checked)} />
                 Solo simular (no cambia nada)
               </label>
@@ -342,20 +332,20 @@ export function GearView({ data }: { data: GearData }) {
 function Result({ equipping, onUndo }: { equipping: Equipping; onUndo: () => void }) {
   if (equipping.state === "error") {
     return (
-      <div className="mx-auto mt-2 max-w-7xl rounded border border-red-500 bg-red-950/40 p-2 text-sm text-red-200" role="alert">
+      <div className="mx-auto mt-3 max-w-7xl border border-red-500/60 bg-red-950/40 p-3 text-sm text-red-200" role="alert">
         {equipping.error.message}
-        {equipping.error.kind === "expired" && <a href="/api/auth/login" className="ml-2 text-blue-300 underline">Iniciar sesión</a>}
+        {equipping.error.kind === "expired" && <a href="/api/auth/login" className="link ml-2">Iniciar sesión</a>}
       </div>
     );
   }
   if (equipping.state !== "done") return null;
   const { outcome } = equipping;
   if (outcome.blocked) {
-    return <div className="mx-auto mt-2 max-w-7xl rounded border border-yellow-500 bg-yellow-950/40 p-2 text-sm text-yellow-100">{outcome.blocked.join(" ")}</div>;
+    return <div className="mx-auto mt-3 max-w-7xl border border-yellow-500/60 bg-yellow-950/40 p-3 text-sm text-yellow-100">{outcome.blocked.join(" ")}</div>;
   }
   return (
-    <div className={`mx-auto mt-2 max-w-7xl rounded border p-2 text-sm ${outcome.ok ? "border-green-600 bg-green-950/30 text-green-100" : "border-red-500 bg-red-950/40 text-red-100"}`} role="status">
-      <p className="font-medium">
+    <div className={`mx-auto mt-3 max-w-7xl border p-3 text-sm ${outcome.ok ? "border-green-500/60 bg-green-950/30 text-green-100" : "border-red-500/60 bg-red-950/40 text-red-100"}`} role="status">
+      <p className="display text-base">
         {outcome.dryRun ? "Simulación: no se cambió nada." : outcome.ok ? "Listo: arma equipada." : "No se pudo completar."}
       </p>
       <ul className="mt-1 space-y-0.5 text-xs">
@@ -367,23 +357,24 @@ function Result({ equipping, onUndo }: { equipping: Equipping; onUndo: () => voi
         ))}
       </ul>
       {!outcome.dryRun && outcome.steps.some((s) => s.ok && !s.skipped) && (
-        <button onClick={onUndo} className="mt-2 rounded bg-zinc-700 px-2 py-1 text-xs hover:bg-zinc-600">Deshacer</button>
+        <button onClick={onUndo} className="btn btn-sm mt-2.5">Deshacer</button>
       )}
     </div>
   );
 }
 
+function WeaponIcon({ item, size }: { item: NormalizedItem; size: number }) {
+  return <ItemIcon icon={item.icon} size={size} />;
+}
+
 function MiniWeapon({ item, rows }: { item: NormalizedItem; rows: GearRow[] }) {
   const row = rows.find((r) => r.item.id === item.id);
   return (
-    <div className="mt-1 flex items-center gap-2">
-      {item.icon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.icon} alt="" width={36} height={36} className={`h-9 w-9 rounded border-b-2 ${TIER_BORDER[item.tier]}`} />
-      ) : <div className="h-9 w-9 rounded bg-zinc-800" />}
+    <div className="item-card mt-2.5 flex items-center gap-3 p-2.5" data-tier={item.tier}>
+      <WeaponIcon item={item} size={52} />
       <div className="min-w-0">
-        <p className="truncate text-sm font-medium">{item.name}</p>
-        <p className="text-xs text-zinc-400">{item.type}{item.element ? ` · ${item.element}` : ""}</p>
+        <p className="item-name display truncate text-base leading-tight text-white">{item.name}</p>
+        <p className="flex items-center gap-1.5 text-xs text-zinc-400"><ElementMark element={item.element} />{item.type}{item.element ? ` · ${item.element}` : ""}</p>
         {row && <Badges row={row} />}
       </div>
     </div>
@@ -401,14 +392,20 @@ function SlotColumn(props: {
   const s = SLOT_LABELS[props.slot];
   return (
     <section aria-label={`${s.number} · ${s.name}`}>
-      <h2 className="mb-2 flex items-baseline justify-between border-b border-zinc-700 pb-1">
-        <span className="font-semibold">{s.number} <span className="font-normal text-zinc-400">· {s.name}</span></span>
-        <span className="text-xs text-zinc-500">{props.rows.length}</span>
+      <h2 className="relative mb-3 flex items-end justify-between border-b border-white/10 pb-2">
+        <span className="flex items-center gap-2.5">
+          <span className="display grid h-8 w-8 place-items-center border border-gold/60 text-lg text-gold shadow-[0_0_14px_-2px_rgba(230,195,106,0.45)]" style={{ transform: "rotate(0deg)" }}>
+            {SLOT_NUMERAL[props.slot]}
+          </span>
+          <span className="display text-xl leading-none text-white">{s.number} <span className="text-zinc-400">· {s.name}</span></span>
+        </span>
+        <span className="display text-sm text-zinc-500">{props.rows.length}</span>
+        <span className="absolute -bottom-px left-0 h-px w-16 bg-gold" />
       </h2>
       {props.rows.length === 0 ? (
-        <p className="text-sm text-zinc-500">Ninguna arma coincide.</p>
+        <p className="panel-quiet p-4 text-sm text-zinc-500">Ninguna arma coincide.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {props.rows.map((row) => {
             const { item } = row;
             const here = item.location === "character" && item.characterId === props.characterId;
@@ -418,26 +415,33 @@ function SlotColumn(props: {
                 <button
                   onClick={() => props.onSelect(item.id)}
                   aria-pressed={selected}
-                  className={`flex w-full items-start gap-2 rounded border-l-4 bg-zinc-900 p-2 text-left hover:bg-zinc-800 ${TIER_BORDER[item.tier]} ${selected ? "ring-2 ring-green-500" : ""}`}
+                  data-tier={item.tier}
+                  data-selected={selected}
+                  className="item-card flex w-full cursor-pointer items-start gap-3 p-2.5 pl-3.5 text-left"
                 >
-                  {item.icon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.icon} alt="" width={44} height={44} loading="lazy" className="h-11 w-11 shrink-0 rounded" />
-                  ) : <div className="h-11 w-11 shrink-0 rounded bg-zinc-800" />}
+                  <WeaponIcon item={item} size={56} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-sm font-semibold">{item.name}</span>
-                      {item.power !== null && <span className="font-mono text-xs text-yellow-300">{item.power}</span>}
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="item-name display truncate text-[1.05rem] leading-tight text-white">{item.name}</span>
+                      {item.power !== null && (
+                        <span className="display flex items-center gap-1 text-lg leading-none text-gold-bright">
+                          <span className="text-[0.55rem] text-gold">◆</span>{item.power}
+                        </span>
+                      )}
                     </div>
-                    <p className="flex flex-wrap items-center gap-1 text-xs text-zinc-400">
-                      <span>{item.type}{item.element ? ` · ${item.element}` : ""}</span>
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
+                      <span className="flex items-center gap-1.5"><ElementMark element={item.element} />{item.type}{item.element ? ` · ${item.element}` : ""}</span>
                       {item.ammo && (
-                        <span title={`Munición ${AMMO_LABELS[item.ammo].toLowerCase()}`} className={`rounded border px-1 text-[10px] ${AMMO_STYLES[item.ammo]}`}>
+                        <span
+                          title={`Munición ${AMMO_LABELS[item.ammo].toLowerCase()}`}
+                          className="display border px-1.5 text-[0.7rem] leading-4"
+                          style={{ borderColor: AMMO_COLORS[item.ammo], color: AMMO_COLORS[item.ammo] }}
+                        >
                           {AMMO_LABELS[item.ammo]}
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="mt-0.5 text-xs text-zinc-500">
                       {item.location === "vault" ? "En el alijo" : `${props.label(item.characterId)}${item.equipped ? " · equipada" : ""}`}
                       {here && item.equipped ? " ✓" : ""}
                     </p>
@@ -457,14 +461,24 @@ function Badges({ row }: { row: GearRow }) {
   const { now, potential } = row.status;
   if (now.length === 0 && potential.length === 0) return null;
   return (
-    <p className="mt-1 flex flex-wrap gap-1">
+    <p className="mt-1.5 flex flex-wrap gap-1.5">
       {now.map((c) => (
-        <span key={c.type} title={`${CHAMPION_LABELS[c.type]}: ${c.via.map((v) => VIA_LABELS[v]).join(", ")}`} className={`rounded border px-1.5 text-[11px] ${CHAMPION_STYLES[c.type].solid}`}>
+        <span
+          key={c.type}
+          title={`${CHAMPION_LABELS[c.type]}: ${c.via.map((v) => VIA_LABELS[v]).join(", ")}`}
+          className="display border px-1.5 text-xs leading-5"
+          style={{ borderColor: CHAMPION_COLORS[c.type], color: "#fff", background: `color-mix(in srgb, ${CHAMPION_COLORS[c.type]} 30%, #0a0f1d)`, boxShadow: `0 0 10px -3px ${CHAMPION_COLORS[c.type]}` }}
+        >
           {CHAMPION_LABELS[c.type]}
         </span>
       ))}
       {potential.map((p) => (
-        <span key={p.type} title={`Lo haría activando la ventaja de artefacto «${p.perk}»`} className={`rounded border px-1.5 text-[11px] ${CHAMPION_STYLES[p.type].dashed}`}>
+        <span
+          key={p.type}
+          title={`Lo haría activando la ventaja de artefacto «${p.perk}»`}
+          className="display border border-dashed px-1.5 text-xs leading-5"
+          style={{ borderColor: `color-mix(in srgb, ${CHAMPION_COLORS[p.type]} 65%, transparent)`, color: CHAMPION_COLORS[p.type] }}
+        >
           {CHAMPION_LABELS[p.type]}?
         </span>
       ))}

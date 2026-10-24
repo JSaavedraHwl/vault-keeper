@@ -1,26 +1,422 @@
 @import "tailwindcss";
 
+/* ==========================================================================================
+   Vault Keeper — tema «la Torre de noche»
+   Azul casi negro con atmósfera de estrellas, acentos dorados (la Luz / lo exótico), esquinas
+   con marcas, tipografía condensada en mayúsculas y los colores de rareza y elemento del juego.
+   ========================================================================================== */
+
+@theme {
+  --font-display: var(--font-barlow), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* La escala neutra (zinc) pasa a un gris azulado: todas las pantallas la heredan. */
+  --color-zinc-50: #f4f7fd;
+  --color-zinc-100: #e8edf8;
+  --color-zinc-200: #cfd7ea;
+  --color-zinc-300: #aeb9d3;
+  --color-zinc-400: #8895b4;
+  --color-zinc-500: #67749a;
+  --color-zinc-600: #475375;
+  --color-zinc-700: #2b3657;
+  --color-zinc-800: #1a2340;
+  --color-zinc-900: #0f1730;
+  --color-zinc-950: #070b18;
+
+  --color-gold: #e6c36a;
+  --color-gold-bright: #f8df9a;
+  --color-gold-dim: #8f7739;
+  --color-light: #7cc4ff;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --line: rgba(132, 156, 214, 0.18);
+  --line-strong: rgba(132, 156, 214, 0.32);
+  --gold: #e6c36a;
+
+  /* Rarezas del juego (más luminosas, para fondos oscuros) */
+  --rar-common: #c3bcb4;
+  --rar-uncommon: #4fa862;
+  --rar-rare: #6a9bd8;
+  --rar-legendary: #a273d6;
+  --rar-exotic: #e8c547;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: #04060d;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  background: transparent;
+  color: var(--color-zinc-100);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+}
+
+/* Atmósfera: resplandores y estrellas, fijos detrás de todo. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 720px at 10% -12%, rgba(66, 122, 196, 0.26), transparent 62%),
+    radial-gradient(900px 620px at 100% 8%, rgba(124, 84, 190, 0.2), transparent 60%),
+    radial-gradient(1100px 720px at 50% 125%, rgba(230, 195, 106, 0.12), transparent 62%),
+    linear-gradient(180deg, #070b18 0%, #04060d 100%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image:
+    radial-gradient(1px 1px at 24px 36px, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 96px 128px, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 168px 64px, rgba(190, 214, 255, 0.65), transparent),
+    radial-gradient(1px 1px at 52px 150px, rgba(255, 232, 180, 0.5), transparent);
+  background-size: 230px 190px;
+}
+
+::selection {
+  background: rgba(230, 195, 106, 0.35);
+  color: #fff;
+}
+
+/* Barras de desplazamiento discretas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3657 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b3657;
+  border-radius: 4px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ==========================================================================================
+   Componentes
+   ========================================================================================== */
+@layer components {
+  /* ---- Tipografía ---- */
+  .display {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+  .page-title {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+    font-size: 2rem;
+    line-height: 1;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .page-title::before {
+    content: "";
+    width: 0.7rem;
+    height: 0.7rem;
+    background: var(--gold);
+    transform: rotate(45deg);
+    box-shadow: 0 0 14px rgba(230, 195, 106, 0.7);
+    flex: none;
+  }
+  .eyebrow {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-zinc-400);
+  }
+
+  /* ---- Paneles: cristal oscuro con marcas doradas en dos esquinas ---- */
+  .panel {
+    position: relative;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(22, 31, 58, 0.72), rgba(10, 15, 30, 0.78));
+    backdrop-filter: blur(6px);
+    box-shadow: 0 10px 40px -18px rgba(0, 0, 0, 0.8);
+  }
+  .panel::before,
+  .panel::after {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    border: 0 solid var(--gold);
+    opacity: 0.85;
+  }
+  .panel::before {
+    top: -1px;
+    left: -1px;
+    border-top-width: 2px;
+    border-left-width: 2px;
+  }
+  .panel::after {
+    right: -1px;
+    bottom: -1px;
+    border-right-width: 2px;
+    border-bottom-width: 2px;
+  }
+  .panel-quiet {
+    border: 1px solid var(--line);
+    background: rgba(12, 18, 36, 0.6);
+    backdrop-filter: blur(4px);
+  }
+
+  /* ---- Botones: esquinas cortadas, mayúsculas condensadas ---- */
+  .btn {
+    --chamfer: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1rem;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.1;
+    color: var(--color-zinc-100);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+    border: 1px solid rgba(190, 208, 255, 0.28);
+    clip-path: polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, var(--chamfer) 100%, 0 calc(100% - var(--chamfer)));
+    transition: filter 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    cursor: pointer;
+  }
+  .btn:not(:disabled):hover {
+    filter: brightness(1.22);
+    transform: translateY(-1px);
+  }
+  .btn:not(:disabled):active {
+    transform: translateY(0);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .btn-sm {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+    --chamfer: 5px;
+  }
+  .btn-gold {
+    color: #1b1404;
+    background: linear-gradient(180deg, #f5dc92, #cfa545);
+    border-color: #f1d98f;
+    box-shadow: 0 0 22px -4px rgba(230, 195, 106, 0.55);
+  }
+  .btn-go {
+    color: #04180c;
+    background: linear-gradient(180deg, #7fe0a6, #2fa766);
+    border-color: #8be8b0;
+  }
+  .btn-info {
+    color: #04122a;
+    background: linear-gradient(180deg, #8cc4ff, #3f7fd0);
+    border-color: #9ccdff;
+  }
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(180deg, #e0626a, #a02a38);
+    border-color: #f08a92;
+  }
+  .btn-quiet {
+    background: transparent;
+    border-color: transparent;
+    color: var(--color-zinc-300);
+  }
+  .btn-quiet:not(:disabled):hover {
+    background: rgba(255, 255, 255, 0.06);
+    filter: none;
+  }
+  .link {
+    color: var(--color-light);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .link:hover {
+    color: #fff;
+  }
+
+  /* ---- Fichas (filtros, selectores) ---- */
+  .chip {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--line-strong);
+    color: var(--color-zinc-300);
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.15s ease;
+  }
+  .chip:hover {
+    color: #fff;
+    border-color: rgba(190, 208, 255, 0.5);
+  }
+  .chip[aria-pressed="true"] {
+    color: #fff;
+    border-color: var(--chip, var(--gold));
+    background: color-mix(in srgb, var(--chip, var(--gold)) 22%, #0a0f1d);
+    box-shadow: 0 0 16px -4px var(--chip, var(--gold));
+  }
+
+  /* ---- Campos ---- */
+  .field {
+    background: rgba(5, 9, 20, 0.85);
+    border: 1px solid var(--line-strong);
+    color: var(--color-zinc-100);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .field:hover {
+    border-color: rgba(190, 208, 255, 0.5);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(230, 195, 106, 0.18);
+  }
+  .field option {
+    background: #0a1022;
+    color: var(--color-zinc-100);
+  }
+  input[type="checkbox"] {
+    accent-color: var(--gold);
+  }
+
+  /* ---- Cartas de ítem: color de rareza (--rar) como acento ---- */
+  .item-card {
+    --rar: var(--rar-common);
+    position: relative;
+    border: 1px solid color-mix(in srgb, var(--rar) 32%, transparent);
+    background:
+      linear-gradient(120deg, color-mix(in srgb, var(--rar) 15%, #0c1326) 0%, rgba(9, 14, 28, 0.92) 58%);
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .item-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--rar);
+    box-shadow: 0 0 14px var(--rar);
+  }
+  .item-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--rar);
+    box-shadow: 0 10px 28px -12px var(--rar);
+  }
+  .item-card[data-selected="true"] {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 0 30px -6px rgba(230, 195, 106, 0.6);
+  }
+  .item-card[data-tier="uncommon"] { --rar: var(--rar-uncommon); }
+  .item-card[data-tier="rare"] { --rar: var(--rar-rare); }
+  .item-card[data-tier="legendary"] { --rar: var(--rar-legendary); }
+  .item-card[data-tier="exotic"] {
+    --rar: var(--rar-exotic);
+    background:
+      radial-gradient(420px 120px at 0% 0%, rgba(232, 197, 71, 0.2), transparent 70%),
+      linear-gradient(120deg, color-mix(in srgb, var(--rar) 14%, #0c1326) 0%, rgba(9, 14, 28, 0.92) 58%);
+  }
+  /* Fila dentro de una lista: sin elevación al pasar el ratón */
+  .item-card.flat:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .item-card.flat::before {
+    width: 2px;
+    box-shadow: none;
+    opacity: 0.7;
+  }
+  .item-card[data-tier="exotic"] .item-name {
+    color: var(--rar-exotic);
+    text-shadow: 0 0 14px rgba(232, 197, 71, 0.35);
+  }
+  .icon-frame {
+    border: 1px solid color-mix(in srgb, var(--rar, #c3bcb4) 70%, transparent);
+    background: #070b18;
+    box-shadow: inset 0 0 14px color-mix(in srgb, var(--rar, #c3bcb4) 30%, transparent);
+  }
+
+  /* ---- Barras de progreso ---- */
+  .meter {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+  .meter > span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #2fa766, #8be8b0);
+    box-shadow: 0 0 12px rgba(139, 232, 176, 0.7);
+    transition: width 0.4s ease;
+  }
+  .meter-info > span {
+    background: linear-gradient(90deg, #3f7fd0, #9ccdff);
+    box-shadow: 0 0 12px rgba(156, 205, 255, 0.7);
+  }
+
+  /* ---- Entrada suave de las pantallas ----
+     OJO: no usar `transform` aquí. Un ancestro con transform pasa a ser el bloque contenedor de los
+     elementos `position: fixed` (la barra de selección de Equipar acabaría al final de la página). */
+  .rise {
+    position: relative;
+    animation: rise 0.45s ease both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    top: 8px;
+  }
+  to {
+    opacity: 1;
+    top: 0;
+  }
+}
+@keyframes drift {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }

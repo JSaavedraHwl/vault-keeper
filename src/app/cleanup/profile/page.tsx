@@ -31,12 +31,13 @@ export default async function ProfilePage() {
   ].sort((a, b) => a.localeCompare(b, "es"));
 
   return (
-    <main className="mx-auto max-w-5xl p-4">
-      <header className="mb-4">
-        <h1 className="text-2xl font-bold">Perfil de uso</h1>
+    <main className="rise mx-auto w-full max-w-5xl p-4 pb-16">
+      <header className="mb-6">
+        <p className="eyebrow mb-1.5">Cómo juegas</p>
+        <h1 className="page-title">Perfil de uso</h1>
       </header>
       {warning && (
-        <p className="mb-4 rounded border border-yellow-500 bg-yellow-950/40 p-3 text-sm text-yellow-200">
+        <p className="mb-4 border border-yellow-500/50 bg-yellow-500/10 p-3 text-sm text-yellow-200">
           {warning}
         </p>
       )}

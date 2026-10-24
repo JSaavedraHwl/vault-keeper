@@ -1,24 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import type { ItemTier, NormalizedItem } from "@/lib/inventory/types";
+import { ElementMark, ItemIcon, LockIcon, Power, StatBars } from "@/components/item-bits";
+import type { NormalizedItem } from "@/lib/inventory/types";
+import { TIER_LABELS } from "@/lib/ui/theme";
 import { setItemLockAction } from "./actions";
-
-const TIER_STYLES: Record<ItemTier, string> = {
-  common: "border-zinc-500",
-  uncommon: "border-green-600",
-  rare: "border-blue-500",
-  legendary: "border-purple-500",
-  exotic: "border-yellow-400",
-};
-
-const TIER_LABELS: Record<ItemTier, string> = {
-  common: "Común",
-  uncommon: "Poco común",
-  rare: "Raro",
-  legendary: "Legendario",
-  exotic: "Exótico",
-};
 
 const KINDS = [
   { value: "all", label: "Todo" },
@@ -26,6 +12,8 @@ const KINDS = [
   { value: "armor", label: "Armaduras" },
   { value: "other", label: "Otros" },
 ] as const;
+
+const CLASS_LABELS = { titan: "Titán", hunter: "Cazador", warlock: "Hechicero" } as const;
 
 export function VaultView({ items }: { items: NormalizedItem[] }) {
   const [kind, setKind] = useState<(typeof KINDS)[number]["value"]>("all");
@@ -50,23 +38,25 @@ export function VaultView({ items }: { items: NormalizedItem[] }) {
   }, [items, kind, type, query]);
 
   return (
-    <main className="mx-auto max-w-7xl p-4">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-2xl font-bold">
-          Alijo <span className="text-sm font-normal text-zinc-400">({visible.length} de {items.length})</span>
-        </h1>
+    <main className="rise mx-auto w-full max-w-7xl p-4 pb-16">
+      <header className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
+        <div className="mr-auto">
+          <p className="eyebrow mb-1.5">Todo lo que guardas</p>
+          <h1 className="page-title">
+            Alijo
+            <span className="display text-base font-medium text-zinc-400">
+              {visible.length} de {items.length}
+            </span>
+          </h1>
+        </div>
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar por nombre…"
-          className="w-56 rounded border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-sm"
+          className="field w-60"
         />
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-          className="rounded border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-sm"
-        >
+        <select value={type} onChange={(e) => setType(e.target.value)} className="field" aria-label="Tipo">
           <option value="">Todos los tipos</option>
           {types.map((t) => (
             <option key={t} value={t}>
@@ -76,17 +66,16 @@ export function VaultView({ items }: { items: NormalizedItem[] }) {
         </select>
       </header>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         {KINDS.map((k) => (
           <button
             key={k.value}
+            aria-pressed={kind === k.value}
             onClick={() => {
               setKind(k.value);
               setType("");
             }}
-            className={`rounded px-3 py-1 text-sm ${
-              kind === k.value ? "bg-blue-600 text-white" : "bg-zinc-800 hover:bg-zinc-700"
-            }`}
+            className="chip"
           >
             {k.label}
           </button>
@@ -94,7 +83,7 @@ export function VaultView({ items }: { items: NormalizedItem[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <p className="text-zinc-400">No hay ítems que coincidan.</p>
+        <p className="panel-quiet p-6 text-zinc-400">No hay ítems que coincidan.</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((item) => (
@@ -137,15 +126,19 @@ function LockButton({ item }: { item: NormalizedItem }) {
         title={locked ? "Quitar candado" : "Poner candado"}
         aria-label={`${locked ? "Quitar candado a" : "Poner candado a"} ${item.name}`}
         aria-pressed={locked}
-        className={`rounded px-1.5 py-0.5 text-sm hover:bg-zinc-700 disabled:opacity-50 ${locked ? "text-yellow-300" : "text-zinc-500"}`}
+        className={`grid h-7 w-7 place-items-center border transition-colors disabled:opacity-50 ${
+          locked
+            ? "border-gold/70 bg-gold/15 text-gold-bright shadow-[0_0_12px_-3px_var(--gold)]"
+            : "border-white/15 text-zinc-500 hover:border-white/40 hover:text-zinc-200"
+        }`}
       >
-        {pending ? "…" : locked ? "🔒" : "🔓"}
+        {pending ? <span className="text-xs">…</span> : <LockIcon locked={locked} />}
       </button>
       {message && (
         <span
           role="status"
-          className={`absolute right-0 top-full z-10 mt-1 w-56 rounded border p-2 text-xs ${
-            message.ok ? "border-green-600 bg-zinc-950 text-green-300" : "border-red-500 bg-zinc-950 text-red-300"
+          className={`absolute right-0 top-full z-10 mt-1.5 w-60 border p-2 text-xs ${
+            message.ok ? "border-green-500/60 bg-zinc-950 text-green-300" : "border-red-500/60 bg-zinc-950 text-red-300"
           }`}
         >
           {message.text}
@@ -156,52 +149,54 @@ function LockButton({ item }: { item: NormalizedItem }) {
 }
 
 function ItemCard({ item }: { item: NormalizedItem }) {
+  const armor = item.kind === "armor";
   return (
-    <li className={`flex gap-3 rounded border-l-4 bg-zinc-900 p-3 ${TIER_STYLES[item.tier]}`}>
-      {item.icon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.icon} alt="" width={56} height={56} loading="lazy" className="h-14 w-14 shrink-0 rounded" />
-      ) : (
-        <div className="h-14 w-14 shrink-0 rounded bg-zinc-800" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="truncate font-semibold">
-            {item.name}
-            {item.quantity > 1 && <span className="text-zinc-400"> ×{item.quantity}</span>}
-          </h2>
-          <span className="flex shrink-0 items-center gap-2">
-            {item.power !== null && <span className="font-mono text-yellow-300">{item.power}</span>}
-            {item.id !== String(item.hash) && <LockButton item={item} />}
-          </span>
+    <li className="item-card p-3.5 pl-4" data-tier={item.tier}>
+      <div className="flex gap-3.5">
+        <ItemIcon icon={item.icon} size={64} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="item-name display line-clamp-2 text-lg leading-tight text-white" title={item.name}>
+              {item.name}
+              {item.quantity > 1 && <span className="text-zinc-400"> ×{item.quantity}</span>}
+            </h2>
+            <span className="flex shrink-0 items-center gap-2.5">
+              <Power value={item.power} />
+              {item.id !== String(item.hash) && <LockButton item={item} />}
+            </span>
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-zinc-400">
+            <ElementMark element={item.element} />
+            <span>{item.type}</span>
+            <span className="text-zinc-600">·</span>
+            <span>{TIER_LABELS[item.tier]}</span>
+            {item.gearTier !== undefined && item.gearTier > 0 && <><span className="text-zinc-600">·</span><span>nivel {item.gearTier}</span></>}
+            {item.classType && <><span className="text-zinc-600">·</span><span>{CLASS_LABELS[item.classType]}</span></>}
+          </p>
+
+          {item.perks.length > 0 && (
+            <p className="mt-2 flex flex-wrap gap-1">
+              {item.perks.map((p, i) => (
+                <span key={`${p.name}-${i}`} className="border border-white/10 bg-white/5 px-1.5 py-0.5 text-[0.7rem] text-zinc-300">
+                  {p.name}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
-        <p className="text-xs text-zinc-400">
-          {item.type} · {TIER_LABELS[item.tier]}
-          {item.gearTier !== undefined && item.gearTier > 0 && ` · nivel ${item.gearTier}`}
-          {item.classType && ` · ${item.classType}`}
-        </p>
-
-        {item.perks.length > 0 && (
-          <p className="mt-1 text-xs text-zinc-300">{item.perks.map((p) => p.name).join(" · ")}</p>
-        )}
-
-        {item.stats.length > 0 && (
-          <dl className="mt-2 grid grid-cols-2 gap-x-3 text-xs text-zinc-400">
-            {item.stats.map((s) => (
-              <div key={s.name} className="flex justify-between">
-                <dt className="truncate">{s.name}</dt>
-                <dd className="font-mono text-zinc-200">{s.value}</dd>
-              </div>
-            ))}
-            {item.armorTotal !== undefined && (
-              <div className="col-span-2 mt-1 flex justify-between border-t border-zinc-700 pt-1 font-semibold text-zinc-200">
-                <dt>Total</dt>
-                <dd className="font-mono">{item.armorTotal}</dd>
-              </div>
-            )}
-          </dl>
-        )}
       </div>
+
+      {item.stats.length > 0 && (
+        <div className="mt-3 border-t border-white/8 pt-2.5">
+          <StatBars stats={item.stats} max={armor ? 40 : 100} />
+          {item.armorTotal !== undefined && (
+            <p className="display mt-2 flex items-center justify-between border-t border-white/8 pt-2 text-sm text-zinc-300">
+              Total
+              <span className="text-lg text-white">{item.armorTotal}</span>
+            </p>
+          )}
+        </div>
+      )}
     </li>
   );
 }

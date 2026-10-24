@@ -137,7 +137,22 @@ Filtra tus armas (alijo y personajes) por lo que necesites para una actividad y 
 | Datos de ejemplo en el análisis | `CLASSIFY_SIMULATION=1` | `/cleanup` usa los datos de `fixtures/`. |
 | Tamaño de tanda | `ACTIONS_MAX_ITEMS_PER_RUN=1..500` | Cambia el tope de ítems por tanda/ronda (por defecto 50). |
 
-## 9. Tests
+## 9. Diseño
+
+Tema «la Torre de noche»: fondo azul casi negro con estrellas, acentos dorados, marcas en las esquinas de los
+paneles, tipografía condensada (Barlow Condensed) para titulares y botones, y los colores del propio juego:
+**rareza** (común, poco común, raro, legendario, exótico), **elemento** (rombo de color junto al arma) y
+**campeón** (Barrera naranja, Imparable rojo, Sobrecarga azul).
+
+- Los tokens y las clases comunes (`.panel`, `.btn`, `.chip`, `.field`, `.item-card`...) están en `src/app/globals.css`.
+- Las piezas visuales compartidas están en `src/components/` (`item-bits.tsx`, `emblem.tsx`, `nav.tsx`) y los colores
+  del juego en `src/lib/ui/theme.ts`.
+- **No uses `transform` en un contenedor de página**: convierte a ese contenedor en el bloque de los elementos
+  `position: fixed` (la barra de selección de Equipar dejaría de quedar pegada abajo).
+- **Vista previa sin sesión** (solo desarrollo): `https://localhost:3000/dev/preview?view=gear|gear-selected|vault|cleanup|profile`
+  muestra cada pantalla con datos realistas del manifest. No existe en producción.
+
+## 10. Tests
 
 ```
 npm test        # Vitest: reglas, perfil, planificador, cola, ejecución, deshacer y panel

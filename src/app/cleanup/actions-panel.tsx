@@ -194,18 +194,18 @@ export function ActionsPanel({
   const noCharacters = characters.length === 0;
 
   return (
-    <section aria-label="Acciones sobre el inventario" className="mb-6 rounded border border-zinc-700 bg-zinc-900 p-4">
-      <h2 className="mb-1 text-lg font-semibold">Acciones</h2>
+    <section aria-label="Acciones sobre el inventario" className="panel mb-7 p-5">
+      <h2 className="display mb-1 text-2xl text-white">Acciones</h2>
       <p className="mb-3 text-xs text-zinc-400">
         Tú decides cada paso. La app no desmantela nada: mueve y bloquea, y el desmantelado lo haces en el juego.
       </p>
 
       {error && (
-        <div className="mb-3 rounded border border-red-500 bg-red-950/40 p-3 text-sm">
-          <p className="font-semibold text-red-300">{ERROR_TITLES[error.kind]}</p>
+        <div className="mb-4 border border-red-500/60 bg-red-950/40 p-3 text-sm">
+          <p className="display text-lg text-red-300">{ERROR_TITLES[error.kind]}</p>
           <p className="mt-1 text-red-200">{error.message}</p>
           {error.kind === "expired" && (
-            <a href="/api/auth/login" className="mt-2 inline-block rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-500">
+            <a href="/api/auth/login" className="btn btn-gold btn-sm mt-2">
               Iniciar sesión de nuevo
             </a>
           )}
@@ -282,17 +282,17 @@ function Idle(props: {
   return (
     <div className="space-y-3">
       {props.vaultLock === undefined && (
-        <p className="rounded border border-yellow-500 bg-yellow-950/40 p-2 text-xs text-yellow-200">
+        <p className="border border-yellow-500/50 bg-yellow-500/10 p-2.5 text-xs text-yellow-200">
           Aún no se ha probado el candado en el alijo. Antes de bloquear en masa, pruébalo con un solo ítem en la
           pantalla Alijo (botón del candado).
         </p>
       )}
       <label className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-zinc-300">Personaje:</span>
+        <span className="eyebrow">Personaje</span>
         <select
           value={props.characterId}
           onChange={(e) => props.onCharacter(e.target.value)}
-          className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1"
+          className="field"
         >
           {props.characters.map((c) => (
             <option key={c.id} value={c.id}>
@@ -307,14 +307,14 @@ function Idle(props: {
         <button
           disabled={props.disabled}
           onClick={() => props.onPlan("lock-keepers")}
-          className="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          className="btn btn-info"
         >
           Bloquear los que conservo
         </button>
         <button
           disabled={props.disabled}
           onClick={() => props.onPlan("move-junk")}
-          className="rounded bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+          className="btn btn-danger"
         >
           Mover basura a {props.character ? CLASS_LABELS[props.character.classType] : "…"}
         </button>
@@ -322,7 +322,7 @@ function Idle(props: {
           disabled={props.disabled || !props.canUndo}
           onClick={() => props.onPlan("undo")}
           title={props.canUndo ? "" : "Todavía no hay ninguna ejecución que deshacer"}
-          className="rounded bg-zinc-700 px-3 py-2 text-sm hover:bg-zinc-600 disabled:opacity-40"
+          className="btn"
         >
           Deshacer última ejecución
         </button>
@@ -331,10 +331,10 @@ function Idle(props: {
       {props.simulate && (
         <div className="flex flex-wrap gap-2 border-t border-zinc-800 pt-3 text-xs">
           <span className="text-zinc-500">Solo simulación:</span>
-          <button onClick={() => props.onSim("dismantle")} className="text-blue-400 hover:underline">
+          <button onClick={() => props.onSim("dismantle")} className="link">
             Simular desmantelado en el juego
           </button>
-          <button onClick={() => props.onSim("reset")} className="text-blue-400 hover:underline">
+          <button onClick={() => props.onSim("reset")} className="link">
             Reiniciar el mundo de ejemplo
           </button>
         </div>
@@ -380,7 +380,7 @@ function Confirm(props: {
       <div className="space-y-3 text-sm">
         <p className="text-zinc-200">{plan.warnings.join(" ") || "No hay nada que hacer."}</p>
         <SkippedList skipped={plan.skipped} />
-        <button onClick={props.onBack} className="rounded bg-zinc-700 px-3 py-1.5 hover:bg-zinc-600">
+        <button onClick={props.onBack} className="btn btn-sm">
           Volver
         </button>
       </div>
@@ -389,9 +389,9 @@ function Confirm(props: {
 
   return (
     <div className="space-y-3 text-sm">
-      <div className="rounded border border-blue-500 bg-blue-950/30 p-3">
-        <p className="text-base font-semibold text-blue-100">{title}</p>
-        <p className="mt-1 text-xs text-blue-200">
+      <div className="border border-sky-400/50 bg-sky-500/10 p-3.5">
+        <p className="display text-xl text-white">{title}</p>
+        <p className="mt-1 text-xs text-sky-200">
           {chained
             ? tandas > 1
               ? `Se hará todo seguido, en ${tandas} tandas automáticas de hasta 50 ítems${eta}.`
@@ -402,7 +402,7 @@ function Confirm(props: {
       </div>
 
       {plan.warnings.length > 0 && (
-        <ul className="space-y-1 rounded border border-yellow-500 bg-yellow-950/40 p-2 text-xs text-yellow-200">
+        <ul className="space-y-1 border border-yellow-500/50 bg-yellow-500/10 p-2.5 text-xs text-yellow-200">
           {plan.warnings.map((w) => (
             <li key={w}>⚠ {w}</li>
           ))}
@@ -428,7 +428,7 @@ function Confirm(props: {
             max={total}
             value={n}
             onChange={(e) => props.onCount(Number(e.target.value))}
-            className="w-20 rounded border border-zinc-600 bg-zinc-950 px-2 py-1"
+            className="field w-24"
           />
           <span className="text-xs text-zinc-500">de {total} · usa 1 o 2 para probar primero</span>
         </label>
@@ -447,13 +447,13 @@ function Confirm(props: {
       <SkippedList skipped={plan.skipped} />
 
       <div className="flex flex-wrap gap-2 pt-1">
-        <button onClick={props.onSimulate} className="rounded bg-zinc-700 px-3 py-2 hover:bg-zinc-600">
+        <button onClick={props.onSimulate} className="btn">
           Simular (no cambia nada)
         </button>
-        <button onClick={props.onExecute} className="rounded bg-green-700 px-3 py-2 font-medium text-white hover:bg-green-600">
+        <button onClick={props.onExecute} className="btn btn-go">
           Ejecutar ahora
         </button>
-        <button onClick={props.onBack} className="rounded px-3 py-2 text-zinc-400 hover:bg-zinc-800">
+        <button onClick={props.onBack} className="btn btn-quiet">
           Cancelar
         </button>
       </div>
@@ -491,8 +491,8 @@ function Running(props: {
         <p className="mb-1 text-zinc-300">
           {props.cancelled ? "Cancelando… se detendrá tras la acción en curso." : `Ejecutando… ${done} de ${total}`}
         </p>
-        <div className="h-2 overflow-hidden rounded bg-zinc-800" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full bg-green-500 transition-all" style={{ width: `${percent}%` }} />
+        <div className="meter" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
+          <span style={{ width: `${percent}%` }} />
         </div>
       </div>
       {props.lines.length > 100 && (
@@ -506,7 +506,7 @@ function Running(props: {
           </li>
         ))}
       </ul>
-      <button disabled={props.cancelled} onClick={props.onCancel} className="rounded bg-zinc-700 px-3 py-1.5 hover:bg-zinc-600 disabled:opacity-50">
+      <button disabled={props.cancelled} onClick={props.onCancel} className="btn btn-sm">
         Cancelar
       </button>
     </div>
@@ -537,11 +537,11 @@ function Report(props: {
   return (
     <div className="space-y-3 text-sm">
       {summary.dryRun ? (
-        <p className="rounded border border-zinc-500 bg-zinc-800 p-3 text-zinc-200">
+        <p className="border border-white/20 bg-white/5 p-3 text-zinc-200">
           Esto fue una simulación: no se cambió nada. {summary.results.length} acciones se habrían ejecutado.
         </p>
       ) : (
-        <p className={`rounded border p-3 ${failed.length === 0 && notRun.length === 0 ? "border-green-600 bg-green-950/30 text-green-200" : "border-yellow-500 bg-yellow-950/30 text-yellow-100"}`}>
+        <p className={`border p-3 ${failed.length === 0 && notRun.length === 0 ? "border-green-600 bg-green-950/30 text-green-200" : "border-yellow-500 bg-yellow-950/30 text-yellow-100"}`}>
           {done.length} correctas · {failed.length} con error · {notRun.length} sin ejecutar
           {summary.omitted.length > 0 && ` · ${summary.omitted.length} omitidas por cambios`}
         </p>
@@ -553,8 +553,8 @@ function Report(props: {
       {stoppedFatal && <p className="text-red-300">Se detuvo: {stoppedFatal.message}</p>}
 
       {movedItems > 0 && (
-        <div className="rounded border border-blue-500 bg-blue-950/40 p-3 text-blue-100">
-          <p className="font-semibold">Ahora ve al juego</p>
+        <div className="border border-sky-400/50 bg-sky-500/10 p-3.5 text-sky-100">
+          <p className="display text-xl text-white">Ahora ve al juego</p>
           <p className="mt-1">
             Abre el inventario de tu {target} y desmantela los {movedItems} ítems que se movieron.
             {summary.remainingRounds > 0 && ` Quedan ${summary.remainingRounds} rondas más: cuando termines, pulsa «Siguiente ronda».`}
@@ -589,31 +589,31 @@ function Report(props: {
 
       <div className="flex flex-wrap gap-2 pt-1">
         {summary.dryRun && (
-          <button onClick={props.onRealRun} className="rounded bg-green-700 px-3 py-2 font-medium text-white hover:bg-green-600">
+          <button onClick={props.onRealRun} className="btn btn-go">
             Ejecutar de verdad
           </button>
         )}
         {!summary.dryRun && props.kind === "move-junk" && summary.remainingRounds > 0 && (
-          <button onClick={props.onNext} className="rounded bg-blue-600 px-3 py-2 font-medium text-white hover:bg-blue-500">
+          <button onClick={props.onNext} className="btn btn-info">
             Siguiente ronda
           </button>
         )}
         {!summary.dryRun && props.kind === "move-junk" && summary.remainingRounds === 0 && movedItems > 0 && (
-          <button onClick={props.onNext} className="rounded bg-zinc-700 px-3 py-2 hover:bg-zinc-600">
+          <button onClick={props.onNext} className="btn">
             Comprobar si queda más basura
           </button>
         )}
         {props.canUndo && props.kind !== "undo" && (
-          <button onClick={props.onUndo} className="rounded bg-zinc-700 px-3 py-2 hover:bg-zinc-600">
+          <button onClick={props.onUndo} className="btn">
             Deshacer esta ejecución
           </button>
         )}
         {props.simulate && movedItems > 0 && (
-          <button onClick={props.onDismantle} className="rounded bg-zinc-800 px-3 py-2 text-xs hover:bg-zinc-700">
+          <button onClick={props.onDismantle} className="btn btn-sm">
             Simular desmantelado en el juego
           </button>
         )}
-        <button onClick={props.onDone} className="rounded px-3 py-2 text-zinc-400 hover:bg-zinc-800">
+        <button onClick={props.onDone} className="btn btn-quiet">
           Cerrar
         </button>
       </div>

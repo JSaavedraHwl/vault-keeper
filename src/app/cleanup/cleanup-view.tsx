@@ -6,7 +6,8 @@ import type { AnalysisData, AnalysisStage } from "@/lib/classify/analyze-vault";
 import { applyManualVerdicts, EMPTY_OVERRIDES, type ManualVerdict, type Overrides } from "@/lib/classify/overrides-pure";
 import { summarize } from "@/lib/classify/run";
 import type { ClassificationResult, RuleId, Verdict } from "@/lib/classify/types";
-import type { ItemTier, NormalizedItem } from "@/lib/inventory/types";
+import { ItemIcon, Power } from "@/components/item-bits";
+import type { NormalizedItem } from "@/lib/inventory/types";
 import { ActionsPanel } from "./actions-panel";
 import { setAlwaysKeepAction, setVerdictAction } from "./actions";
 
@@ -23,11 +24,18 @@ const VERDICT_LABELS: Record<Verdict, string> = {
   needs_review: "Revisar",
 };
 const GROUP_ORDER: Verdict[] = ["junk", "needs_review", "archive", "keep"];
-const GROUP_STYLES: Record<Verdict, string> = {
-  junk: "border-red-500 text-red-300",
-  needs_review: "border-yellow-500 text-yellow-300",
-  archive: "border-blue-500 text-blue-300",
-  keep: "border-green-600 text-green-300",
+// Un color por veredicto, usado en el resumen, las cabeceras de grupo y las filas.
+const VERDICT_COLORS: Record<Verdict, string> = {
+  junk: "#ef5b5b",
+  needs_review: "#e8b04a",
+  archive: "#5aa0f0",
+  keep: "#4fc283",
+};
+const VERDICT_HINTS: Record<Verdict, string> = {
+  junk: "Candidatos a desmantelar",
+  needs_review: "Decide tú",
+  archive: "Por ahora no, pero podrían servir",
+  keep: "Se quedan",
 };
 
 const RULE_LABELS: Record<RuleId, string> = {
@@ -42,20 +50,13 @@ const RULE_LABELS: Record<RuleId, string> = {
   otherItems: "Otros ítems",
 };
 
-const TIER_BORDER: Record<ItemTier, string> = {
-  common: "border-zinc-500",
-  uncommon: "border-green-600",
-  rare: "border-blue-500",
-  legendary: "border-purple-500",
-  exotic: "border-yellow-400",
-};
-
 type ViewError = { kind: AnalyzeErrorKind; message: string };
 type AnalyzeErrorKind = Extract<AnalyzeEvent, { type: "error" }>["kind"];
 
-export function CleanupView({ simulate }: { simulate: boolean }) {
-  const [data, setData] = useState<AnalysisData | null>(null);
-  const [overrides, setOverrides] = useState<Overrides>(EMPTY_OVERRIDES);
+export function CleanupView({ simulate, initialData }: { simulate: boolean; initialData?: AnalysisData }) {
+  // `initialData` permite mostrar la pantalla ya con resultados (vista previa y pruebas).
+  const [data, setData] = useState<AnalysisData | null>(initialData ?? null);
+  const [overrides, setOverrides] = useState<Overrides>(initialData?.overrides ?? EMPTY_OVERRIDES);
   const [stage, setStage] = useState<AnalysisStage | null>(null);
   const [error, setError] = useState<ViewError | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -128,60 +129,65 @@ export function CleanupView({ simulate }: { simulate: boolean }) {
   }, [results, itemsById]);
 
   return (
-    <main className="mx-auto max-w-6xl p-4">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-2xl font-bold">Limpieza del alijo</h1>
+    <main className="rise mx-auto w-full max-w-6xl p-4 pb-16">
+      <header className="mb-5 flex flex-wrap items-end gap-x-4 gap-y-3">
+        <div className="mr-auto">
+          <p className="eyebrow mb-1.5">Decide qué conservas</p>
+          <h1 className="page-title">Limpieza del alijo</h1>
+        </div>
+        <button onClick={runAnalysis} disabled={running} className="btn btn-gold">
+          {running ? "Analizando…" : data ? "Analizar de nuevo" : "Analizar alijo"}
+        </button>
       </header>
 
       {simulate && (
-        <p className="mb-4 rounded border border-yellow-500 bg-yellow-950/40 p-3 text-sm text-yellow-200">
+        <p className="mb-4 border border-yellow-500/50 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-200">
           Modo simulación: se usan datos de ejemplo y no se llama a Bungie. Las correcciones se guardan aparte.
         </p>
       )}
 
-      <p className="mb-4 text-sm text-zinc-400">
+      <p className="mb-5 text-sm text-zinc-400">
         Esta pantalla solo sugiere. La app nunca borra ni desmantela nada: eso lo haces tú dentro del juego.
       </p>
 
-      <div className="mb-4 flex items-center gap-4">
-        <button
-          onClick={runAnalysis}
-          disabled={running}
-          className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-        >
-          {running ? "Analizando…" : data ? "Analizar de nuevo" : "Analizar alijo"}
-        </button>
-        {running && (
-          <div className="flex-1" role="progressbar" aria-valuenow={STAGES[stage].percent} aria-valuemin={0} aria-valuemax={100}>
-            <p className="mb-1 text-xs text-zinc-400">{STAGES[stage].label}</p>
-            <div className="h-2 overflow-hidden rounded bg-zinc-800">
-              <div className="h-full bg-blue-500 transition-all duration-500" style={{ width: `${STAGES[stage].percent}%` }} />
-            </div>
+      {running && (
+        <div className="panel-quiet mb-5 p-4" role="progressbar" aria-valuenow={STAGES[stage].percent} aria-valuemin={0} aria-valuemax={100}>
+          <p className="eyebrow mb-2 !text-gold">{STAGES[stage].label}</p>
+          <div className="meter meter-info">
+            <span style={{ width: `${STAGES[stage].percent}%` }} />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && <ErrorBox error={error} />}
       {actionError && (
-        <p className="mb-4 rounded border border-red-500 bg-red-950/40 p-3 text-sm text-red-300">{actionError}</p>
+        <p className="mb-4 border border-red-500/60 bg-red-950/40 p-3 text-sm text-red-300">{actionError}</p>
       )}
 
       {data && (
         <>
-          <section className="mb-6">
+          <section className="mb-7">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
               {GROUP_ORDER.map((v) => (
-                <div key={v} className={`rounded border-l-4 bg-zinc-900 p-3 ${GROUP_STYLES[v]}`}>
-                  <p className="text-2xl font-bold">{summary.counts[v]}</p>
-                  <p className="text-xs">{VERDICT_LABELS[v]}</p>
+                <div
+                  key={v}
+                  className="panel relative overflow-hidden p-4"
+                  style={{ ["--c" as string]: VERDICT_COLORS[v] }}
+                >
+                  <span className="absolute inset-y-0 left-0 w-[3px]" style={{ background: VERDICT_COLORS[v], boxShadow: `0 0 14px ${VERDICT_COLORS[v]}` }} />
+                  <p className="display text-4xl font-bold leading-none" style={{ color: VERDICT_COLORS[v] }}>{summary.counts[v]}</p>
+                  <p className="display mt-1.5 text-sm text-zinc-200">{VERDICT_LABELS[v]}</p>
+                  <p className="mt-0.5 text-[0.7rem] text-zinc-500">{VERDICT_HINTS[v]}</p>
                 </div>
               ))}
-              <div className="rounded border-l-4 border-zinc-500 bg-zinc-900 p-3 text-zinc-200">
-                <p className="text-2xl font-bold">{summary.slotsFreed}</p>
-                <p className="text-xs">ranuras que liberarías</p>
+              <div className="panel relative overflow-hidden p-4">
+                <span className="absolute inset-y-0 left-0 w-[3px] bg-zinc-400" />
+                <p className="display text-4xl font-bold leading-none text-white">{summary.slotsFreed}</p>
+                <p className="display mt-1.5 text-sm text-zinc-200">Ranuras</p>
+                <p className="mt-0.5 text-[0.7rem] text-zinc-500">que liberarías</p>
               </div>
             </div>
-            <p className="mt-2 text-xs text-zinc-500">
+            <p className="mt-3 text-xs text-zinc-500">
               {summary.total} ítems · {summary.bySource.manual} con corrección manual · analizado con el perfil v
               {data.profileVersion} a las {new Date(data.generatedAt).toLocaleTimeString("es")}
             </p>
@@ -218,11 +224,11 @@ function ErrorBox({ error }: { error: ViewError }) {
     other: "No se pudo analizar el alijo",
   };
   return (
-    <div className="mb-4 rounded border border-red-500 bg-red-950/40 p-4">
-      <p className="font-semibold text-red-300">{titles[error.kind]}</p>
+    <div className="mb-5 border border-red-500/60 bg-red-950/40 p-4">
+      <p className="display text-lg text-red-300">{titles[error.kind]}</p>
       <p className="mt-1 text-sm text-red-200">{error.message}</p>
       {error.kind === "expired" && (
-        <a href="/api/auth/login" className="mt-3 inline-block rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500">
+        <a href="/api/auth/login" className="btn btn-gold btn-sm mt-3">
           Iniciar sesión de nuevo
         </a>
       )}
@@ -243,16 +249,17 @@ interface GroupProps {
 function Group({ verdict, results, itemsById, overrides, defaultOpen, onVerdict, onAlwaysKeep }: GroupProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className={`rounded border-l-4 bg-zinc-900 ${GROUP_STYLES[verdict]}`}>
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between p-3 text-left">
-        <span className="font-semibold">
-          {VERDICT_LABELS[verdict]} <span className="text-zinc-400">({results.length})</span>
+    <section className="panel-quiet relative overflow-hidden">
+      <span className="absolute inset-y-0 left-0 w-[3px]" style={{ background: VERDICT_COLORS[verdict], boxShadow: `0 0 14px ${VERDICT_COLORS[verdict]}` }} />
+      <button onClick={() => setOpen(!open)} className="flex w-full cursor-pointer items-center justify-between px-5 py-3.5 text-left hover:bg-white/[0.03]">
+        <span className="display text-xl" style={{ color: VERDICT_COLORS[verdict] }}>
+          {VERDICT_LABELS[verdict]} <span className="text-base text-zinc-400">({results.length})</span>
         </span>
-        <span className="text-xs text-zinc-400">{open ? "Ocultar" : "Mostrar"}</span>
+        <span className="eyebrow">{open ? "Ocultar" : "Mostrar"}</span>
       </button>
       {open && (
-        <ul className="divide-y divide-zinc-800 border-t border-zinc-800 text-zinc-200">
-          {results.length === 0 && <li className="p-3 text-sm text-zinc-500">Ningún ítem.</li>}
+        <ul className="divide-y divide-white/5 border-t border-white/8 text-zinc-200">
+          {results.length === 0 && <li className="p-4 text-sm text-zinc-500">Ningún ítem.</li>}
           {results.map((r) => {
             const item = itemsById.get(r.itemId);
             return item ? (
@@ -293,20 +300,15 @@ function Row({ item, result, manual, alwaysKeep, onVerdict, onAlwaysKeep }: RowP
   const alsoMatched = result.alsoMatched?.map((id) => RULE_LABELS[id]).join(", ");
 
   return (
-    <li className="flex flex-wrap items-center gap-3 p-3 text-sm">
-      {item.icon ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.icon} alt="" width={40} height={40} loading="lazy" className={`h-10 w-10 shrink-0 rounded border-b-2 ${TIER_BORDER[item.tier]}`} />
-      ) : (
-        <div className={`h-10 w-10 shrink-0 rounded border-b-2 bg-zinc-800 ${TIER_BORDER[item.tier]}`} />
-      )}
+    <li className="item-card flat flex flex-wrap items-center gap-3.5 !border-x-0 !border-y-0 !bg-transparent px-5 py-3 text-sm" data-tier={item.tier}>
+      <ItemIcon icon={item.icon} size={46} />
 
       <div className="min-w-[10rem] flex-1">
-        <p className="font-medium">
-          {item.name}
-          {item.power !== null && <span className="ml-2 font-mono text-yellow-300">{item.power}</span>}
-          {item.locked && <span title="Con candado"> 🔒</span>}
-          {item.equipped && <span className="ml-1 text-xs text-zinc-400">(equipado)</span>}
+        <p className="flex items-center gap-2.5">
+          <span className="item-name display text-base text-white">{item.name}</span>
+          <Power value={item.power} className="text-base" />
+          {item.locked && <span title="Con candado" className="text-xs text-gold">🔒</span>}
+          {item.equipped && <span className="text-xs text-zinc-400">(equipado)</span>}
         </p>
         <p className="text-xs text-zinc-400">
           {item.type}
@@ -316,19 +318,19 @@ function Row({ item, result, manual, alwaysKeep, onVerdict, onAlwaysKeep }: RowP
       </div>
 
       <div className="min-w-[14rem] flex-[2]">
-        <p>{result.reason}</p>
-        <p className="text-xs text-zinc-400" title={alsoMatched ? `También coincidía: ${alsoMatched}` : undefined}>
+        <p className="text-zinc-100">{result.reason}</p>
+        <p className="text-xs text-zinc-500" title={alsoMatched ? `También coincidía: ${alsoMatched}` : undefined}>
           {origin} · confianza {Math.round(result.confidence * 100)}%
         </p>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <select
           value={result.verdict === "needs_review" ? "" : result.verdict}
           disabled={alwaysKeep}
           onChange={(e) => onVerdict(item.id, (e.target.value as ManualVerdict) || null)}
           aria-label={`Veredicto de ${item.name}`}
-          className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1 disabled:opacity-50"
+          className="field disabled:opacity-50"
         >
           {result.verdict === "needs_review" && <option value="">Revisar…</option>}
           <option value="keep">Guardar</option>
@@ -338,11 +340,11 @@ function Row({ item, result, manual, alwaysKeep, onVerdict, onAlwaysKeep }: RowP
           </option>
         </select>
         {manual && !alwaysKeep && (
-          <button onClick={() => onVerdict(item.id, null)} className="text-xs text-blue-400 hover:underline">
+          <button onClick={() => onVerdict(item.id, null)} className="link text-xs">
             Quitar corrección
           </button>
         )}
-        <label className="flex items-center gap-1 text-xs text-zinc-300" title="Nunca se sugerirá como basura">
+        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-zinc-300" title="Nunca se sugerirá como basura">
           <input type="checkbox" checked={alwaysKeep} onChange={(e) => onAlwaysKeep(item.id, e.target.checked)} />
           Siempre conservar
         </label>
