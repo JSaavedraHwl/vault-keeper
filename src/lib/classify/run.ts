@@ -1,9 +1,11 @@
 import type { NormalizedItem } from "../inventory/types";
 import type { ClassifyConfig } from "./classify.config";
 import { classifyItems } from "./engine";
-import { applyManualVerdicts, EMPTY_OVERRIDES, type Overrides } from "./overrides";
+import { applyManualVerdicts, EMPTY_OVERRIDES, type Overrides } from "./overrides-pure";
 import type { UsageProfile } from "./profile";
 import type { ClassificationResult, Verdict } from "./types";
+
+// Este módulo no toca el disco: puede ejecutarse en el servidor y en el navegador.
 
 export interface AnalysisSummary {
   total: number;
@@ -30,18 +32,21 @@ export function summarize(results: readonly ClassificationResult[]): AnalysisSum
   return { total: results.length, counts, slotsFreed: counts.junk, bySource };
 }
 
-/** Reglas + correcciones manuales («siempre conservar» protege además dentro de las reglas). */
+/** Solo reglas (sin correcciones manuales). */
+export function classifyWithRules(
+  items: readonly NormalizedItem[],
+  options: { profile: UsageProfile; config?: ClassifyConfig },
+): ClassificationResult[] {
+  return classifyItems(items, { profile: options.profile, config: options.config });
+}
+
+/** Reglas + correcciones manuales («siempre conservar» incluido). */
 export function analyze(
   items: readonly NormalizedItem[],
   options: { profile: UsageProfile; overrides?: Overrides; config?: ClassifyConfig },
 ): AnalysisReport {
-  const overrides = options.overrides ?? EMPTY_OVERRIDES;
-  const ruled = classifyItems(items, {
-    profile: options.profile,
-    config: options.config,
-    protectedIds: new Set(overrides.alwaysKeep),
-  });
-  const results = applyManualVerdicts(ruled, items, overrides);
+  const ruled = classifyWithRules(items, options);
+  const results = applyManualVerdicts(ruled, items, options.overrides ?? EMPTY_OVERRIDES);
   return {
     generatedAt: new Date().toISOString(),
     profileVersion: options.profile.version,

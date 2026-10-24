@@ -11,7 +11,7 @@ import {
   setManualVerdict,
 } from "./overrides";
 import { DEFAULT_PROFILE } from "./profile";
-import { analyze } from "./run";
+import { analyze, classifyWithRules } from "./run";
 import type { Verdict } from "./types";
 
 const verdictsOf = (report: ReturnType<typeof analyze>) =>
@@ -108,6 +108,23 @@ describe("correcciones manuales", () => {
     };
     const v = verdictsOf(analyze(vaultFixtures, { profile: DEFAULT_PROFILE, overrides }));
     expect(v.w103).toBe("keep");
+  });
+
+  it("«siempre conservar» convierte en keep cualquier veredicto de las reglas", () => {
+    const overrides = { ...EMPTY_OVERRIDES, alwaysKeep: ["w5001c", "a203"] }; // archive y archive
+    const r = analyze(vaultFixtures, { profile: DEFAULT_PROFILE, overrides });
+    const v = verdictsOf(r);
+    expect(v.w5001c).toBe("keep");
+    expect(v.a203).toBe("keep");
+  });
+
+  it("quitar «siempre conservar» devuelve el veredicto original de las reglas", () => {
+    const rules = classifyWithRules(vaultFixtures, { profile: DEFAULT_PROFILE });
+    const withKeep = applyManualVerdicts(rules, vaultFixtures, { ...EMPTY_OVERRIDES, alwaysKeep: ["w103"] });
+    expect(withKeep.find((x) => x.itemId === "w103")!.verdict).toBe("keep");
+    // Mismo resultado de reglas, sin la marca: vuelve a junk (la UI recalcula así, sin pasar por el servidor).
+    const without = applyManualVerdicts(rules, vaultFixtures, EMPTY_OVERRIDES);
+    expect(without.find((x) => x.itemId === "w103")!.verdict).toBe("junk");
   });
 
   it("applyManualVerdicts no toca ítems sin corrección", () => {
