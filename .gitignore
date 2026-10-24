@@ -38,6 +38,9 @@ yarn-error.log*
 /.cache/
 /certificates/
 
+# correcciones manuales de la clasificación (datos personales)
+/data/
+
 # vercel
 .vercel
 
