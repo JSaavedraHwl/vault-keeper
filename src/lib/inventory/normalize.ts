@@ -3,6 +3,7 @@ import type { Manifest } from "../manifest";
 import {
   ARMOR_STAT_HASHES,
   HIDDEN_STAT_HASHES,
+  ITEM_STATE_LOCKED,
   ITEM_TYPE_ARMOR,
   ITEM_TYPE_WEAPON,
   PERK_SOCKET_CATEGORIES,
@@ -22,10 +23,17 @@ const TIERS: Record<number, ItemTier> = {
 
 const CLASSES = ["titan", "hunter", "warlock"] as const;
 
+export interface ItemPlace {
+  location?: "vault" | "character";
+  characterId?: string;
+  equipped?: boolean;
+}
+
 export function normalizeItem(
   item: DestinyItemComponent,
   profile: DestinyProfileResponse,
   manifest: Manifest,
+  place: ItemPlace = {},
 ): NormalizedItem | null {
   const def = manifest.items[item.itemHash];
   if (!def) return null; // ítem redactado o sin nombre
@@ -87,6 +95,9 @@ export function normalizeItem(
     stats,
     ...(armorTotal !== undefined && { armorTotal }),
     quantity: item.quantity,
-    location: "vault",
+    locked: (item.state & ITEM_STATE_LOCKED) !== 0,
+    equipped: place.equipped ?? false,
+    location: place.location ?? "vault",
+    ...(place.characterId && { characterId: place.characterId }),
   };
 }

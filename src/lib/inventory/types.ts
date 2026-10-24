@@ -25,7 +25,13 @@ export interface NormalizedItem {
   /** Suma de las 6 stats de la armadura. */
   armorTotal?: number;
   quantity: number;
-  location: "vault";
+  /** Con candado en el juego. */
+  locked: boolean;
+  /** Equipado en un personaje (nunca en el alijo). */
+  equipped: boolean;
+  location: "vault" | "character";
+  /** Solo si location es "character". */
+  characterId?: string;
 }
 
 export type ItemSlot =

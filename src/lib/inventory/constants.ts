@@ -25,6 +25,13 @@ export const ARMOR_STAT_HASHES = [
   4244567218, // Cuerpo a cuerpo
 ] as const;
 
+/** Claves estables de las 6 stats, en el mismo orden que ARMOR_STAT_HASHES y `NormalizedItem.stats`. */
+export const ARMOR_STAT_KEYS = ["weapons", "health", "class", "grenade", "super", "melee"] as const;
+export type ArmorStatKey = (typeof ARMOR_STAT_KEYS)[number];
+
+/** Bit "con candado" de DestinyItemState. */
+export const ITEM_STATE_LOCKED = 1;
+
 /** Stats que no son "de combate" y no se muestran en las armas (poder, defensa). */
 export const HIDDEN_STAT_HASHES = new Set([1935470627, 3897883278, 1480404414]);
 
