@@ -1,6 +1,9 @@
-import { vaultFixtures } from "../../../fixtures/vault-items";
-import type { NormalizedItem } from "../inventory/types";
-import { getVaultItems } from "../inventory/vault";
+import { AUDIT_FILE, lastRun, MOCK_AUDIT_FILE } from "../actions/audit";
+import { loadCapabilities } from "../actions/capabilities";
+import { isMockMode } from "../actions/service-io";
+import { simCharacters, simVaultItems } from "../actions/sim-world";
+import type { CharacterInfo, NormalizedItem } from "../inventory/types";
+import { loadVaultData } from "../inventory/vault";
 import { loadOverrides, OVERRIDES_FILE, SIMULATION_OVERRIDES_FILE } from "./overrides";
 import type { Overrides } from "./overrides-pure";
 import { loadProfile } from "./profile-store";
@@ -16,11 +19,17 @@ export interface AnalysisData {
   /** Resultado de las reglas, sin correcciones manuales. */
   ruleResults: ClassificationResult[];
   overrides: Overrides;
+  /** Personajes con su espacio libre, para elegir destino. */
+  characters: CharacterInfo[];
+  /** ¿Se sabe que el alijo admite candado? undefined = aún no se ha probado. */
+  vaultLock?: boolean;
+  /** Última ejecución real registrada (habilita «Deshacer»). */
+  lastRunId?: string;
 }
 
 export type AnalysisStage = "vault" | "profile" | "rules";
 
-/** ¿Está activo el modo simulación? (datos de `fixtures/`, sin llamar a Bungie.) */
+/** ¿Está activo el modo simulación? (datos de ejemplo, sin llamar a Bungie.) */
 export const isSimulation = () => process.env.CLASSIFY_SIMULATION === "1";
 
 export const overridesFile = (simulated: boolean) =>
@@ -34,12 +43,24 @@ export async function loadAnalysisData(
   const stage = options.onStage ?? (() => {});
 
   stage("vault");
-  const items = simulated ? vaultFixtures : await getVaultItems();
+  let items: NormalizedItem[];
+  let characters: CharacterInfo[];
+  if (simulated) {
+    items = simVaultItems();
+    characters = simCharacters();
+  } else {
+    const data = await loadVaultData();
+    items = data.items;
+    characters = data.characters;
+  }
 
   stage("profile");
-  const [{ profile }, overrides] = await Promise.all([
+  const auditFile = simulated || isMockMode() ? MOCK_AUDIT_FILE : AUDIT_FILE;
+  const [{ profile }, overrides, capabilities, last] = await Promise.all([
     loadProfile(),
     loadOverrides(overridesFile(simulated)),
+    simulated ? Promise.resolve({ vaultLock: true }) : loadCapabilities(),
+    lastRun(auditFile),
   ]);
 
   stage("rules");
@@ -52,6 +73,9 @@ export async function loadAnalysisData(
     items,
     ruleResults,
     overrides,
+    characters,
+    vaultLock: capabilities.vaultLock,
+    lastRunId: last?.runId,
   };
 }
 

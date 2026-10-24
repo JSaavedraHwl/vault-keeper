@@ -56,7 +56,7 @@ export const vaultFixtures: NormalizedItem[] = [
     tier: "common",
     equipped: true,
     location: "character",
-    characterId: "c1",
+    characterId: "sim-titan",
   }), // keep (equipado)
   // Rareza baja
   weapon("w103", "Pistola común", { tier: "common", type: "Pistola" }), // junk

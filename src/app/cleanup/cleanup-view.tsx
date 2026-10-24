@@ -7,6 +7,7 @@ import { applyManualVerdicts, EMPTY_OVERRIDES, type ManualVerdict, type Override
 import { summarize } from "@/lib/classify/run";
 import type { ClassificationResult, RuleId, Verdict } from "@/lib/classify/types";
 import type { ItemTier, NormalizedItem } from "@/lib/inventory/types";
+import { ActionsPanel } from "./actions-panel";
 import { setAlwaysKeepAction, setVerdictAction } from "./actions";
 
 const STAGES: Record<AnalysisStage, { label: string; percent: number }> = {
@@ -130,12 +131,6 @@ export function CleanupView({ simulate }: { simulate: boolean }) {
     <main className="mx-auto max-w-6xl p-4">
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-2xl font-bold">Limpieza del alijo</h1>
-        <a href="/cleanup/profile" className="text-sm text-blue-400 hover:underline">
-          Perfil de uso
-        </a>
-        <a href="/vault" className="text-sm text-blue-400 hover:underline">
-          Alijo
-        </a>
       </header>
 
       {simulate && (
@@ -191,6 +186,8 @@ export function CleanupView({ simulate }: { simulate: boolean }) {
               {data.profileVersion} a las {new Date(data.generatedAt).toLocaleTimeString("es")}
             </p>
           </section>
+
+          <ActionsPanel data={data} simulate={simulate} onRefresh={runAnalysis} />
 
           <div className="space-y-4">
             {GROUP_ORDER.map((verdict) => (
