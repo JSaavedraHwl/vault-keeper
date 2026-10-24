@@ -62,6 +62,7 @@ export async function getDestinyProfileWithMembership(
       200, // Characters
       102, // ProfileInventories (alijo)
       201, // CharacterInventories
+      202, // CharacterProgressions (ventajas activas del artefacto)
       205, // CharacterEquipment
       300, // ItemInstances
       304, // ItemStats
