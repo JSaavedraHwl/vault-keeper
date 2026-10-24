@@ -34,6 +34,45 @@ describe("protección", () => {
   });
 });
 
+describe("protección: la regla decide, no solo la red de seguridad", () => {
+  it("equipado y «siempre conservar» los resuelve la regla `protected`", () => {
+    const equipped = makeItem({ tier: "common", equipped: true });
+    const kept = makeItem({ tier: "common" });
+    expect(one(equipped).ruleId).toBe("protected");
+    expect(one(equipped).reason).toMatch(/equipado/i);
+    const r = one(kept, { protectedIds: new Set([kept.id]) });
+    expect(r.ruleId).toBe("protected");
+    expect(r.reason).toMatch(/siempre conservar/i);
+  });
+});
+
+describe("fronteras exactas de los umbrales", () => {
+  // Por defecto: basura bajo 60, conservar desde 68.
+  it("total == umbral de basura no es basura; uno menos sí", () => {
+    expect(one(makeArmor([10, 10, 10, 10, 10, 10])).verdict).not.toBe("junk"); // 60
+    expect(one(makeArmor([10, 10, 10, 10, 10, 9])).verdict).toBe("junk"); // 59
+  });
+
+  it("total == umbral de conservar es keep; uno menos no", () => {
+    expect(one(makeArmor([12, 11, 11, 11, 11, 12])).verdict).toBe("keep"); // 68
+    expect(one(makeArmor([12, 11, 11, 11, 11, 11])).verdict).toBe("archive"); // 67
+  });
+
+  it("diferencia == surplusGap es basura; menos, archivo", () => {
+    const config = configWith({
+      duplicates: { perkWeight: 10, statWeight: 1, powerWeight: 0, surplusGap: 5 },
+    });
+    const best = makeItem({ hash: 11, stats: stat(15) });
+    const exact = makeItem({ hash: 11, stats: stat(10) }); // gap 5
+    const close = makeItem({ hash: 11, stats: stat(11) }); // gap 4
+    const results = classifyItems([best, exact, close], { config });
+    expect(results[1].verdict).toBe("junk");
+    expect(results[2].verdict).toBe("archive");
+  });
+});
+
+const stat = (value: number) => [{ name: "Estabilidad", value }];
+
 describe("rareza baja", () => {
   it.each(["common", "uncommon", "rare"] as const)("%s en armas y armaduras es junk", (tier) => {
     expect(one(makeItem({ tier })).verdict).toBe("junk");

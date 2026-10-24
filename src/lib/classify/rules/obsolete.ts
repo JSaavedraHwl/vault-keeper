@@ -1,5 +1,14 @@
 import type { Rule } from "../types";
 
+/** Un patrón mal escrito en la config se ignora en vez de romper todo el análisis. */
+function matches(pattern: string, name: string): boolean {
+  try {
+    return new RegExp(pattern, "i").test(name);
+  } catch {
+    return false;
+  }
+}
+
 /** Ítems obsoletos según la configuración (hashes, patrones de nombre o poder mínimo). */
 export const obsoleteRule: Rule = (item, ctx) => {
   const cfg = ctx.config.obsolete;
@@ -7,7 +16,7 @@ export const obsoleteRule: Rule = (item, ctx) => {
 
   if (cfg.hashes.includes(item.hash)) return make("Marcado como obsoleto (lista de hashes).");
 
-  const pattern = cfg.namePatterns.find((p) => new RegExp(p, "i").test(item.name));
+  const pattern = cfg.namePatterns.find((p) => matches(p, item.name));
   if (pattern) return make(`Marcado como obsoleto (nombre coincide con «${pattern}»).`);
 
   if (

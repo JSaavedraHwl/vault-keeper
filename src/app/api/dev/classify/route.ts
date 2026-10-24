@@ -17,10 +17,27 @@ export async function GET(req: NextRequest) {
   try {
     const { items, report, simulated } = await analyzeVault({ simulate });
     const names = new Map(items.map((i) => [i.id, i.name]));
+
+    // Para calibrar umbrales: cuántas armaduras hay con cada total de stats, y qué regla decidió qué.
+    const armorTotals: Record<string, number> = {};
+    for (const item of items.filter((i) => i.kind === "armor")) {
+      const key = item.armorTotal === undefined ? "sin stats" : String(item.armorTotal);
+      armorTotals[key] = (armorTotals[key] ?? 0) + 1;
+    }
+    const ruleHits: Record<string, number> = {};
+    for (const r of report.results) {
+      const key = `${r.ruleId ?? r.source} -> ${r.verdict}`;
+      ruleHits[key] = (ruleHits[key] ?? 0) + 1;
+    }
+
     return NextResponse.json({
       simulated,
       profileVersion: report.profileVersion,
       summary: report.summary,
+      ruleHits,
+      armorTotals: Object.fromEntries(
+        Object.entries(armorTotals).sort(([a], [b]) => Number(a) - Number(b)),
+      ),
       results: report.results.map((r) => ({
         name: names.get(r.itemId),
         verdict: r.verdict,
