@@ -36,6 +36,16 @@ export interface NormalizedItem {
   characterId?: string;
 }
 
+/** Un personaje de la cuenta y el espacio libre que tiene por ranura. */
+export interface CharacterInfo {
+  id: string;
+  classType: "titan" | "hunter" | "warlock";
+  /** Nivel de poder. */
+  light: number;
+  /** Huecos libres por ranura (incluye el equipado como ocupado). Una ranura ausente = sin dato. */
+  free: Partial<Record<ItemSlot, number>>;
+}
+
 export type ItemSlot =
   | "kinetic"
   | "energy"

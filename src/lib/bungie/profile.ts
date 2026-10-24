@@ -44,6 +44,13 @@ export async function getDestinyContext(accessToken: string): Promise<DestinyCon
 
 /** Perfil de Destiny 2 del usuario con todo lo necesario para leer el alijo. */
 export async function getDestinyProfile(accessToken: string): Promise<DestinyProfileResponse> {
+  return (await getDestinyProfileWithMembership(accessToken)).profile;
+}
+
+/** Igual que `getDestinyProfile`, y además devuelve el tipo de membresía (necesario para ejecutar acciones). */
+export async function getDestinyProfileWithMembership(
+  accessToken: string,
+): Promise<{ profile: DestinyProfileResponse; membershipType: number }> {
   const http = createHttpClient(accessToken);
   const membership = await resolveMembership(http);
 
@@ -61,5 +68,5 @@ export async function getDestinyProfile(accessToken: string): Promise<DestinyPro
       305, // ItemSockets
     ],
   });
-  return Response;
+  return { profile: Response, membershipType: membership.membershipType };
 }

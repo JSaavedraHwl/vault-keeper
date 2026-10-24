@@ -35,7 +35,18 @@ export interface SlimSocketTypeDef {
   plugCategories: string[];
 }
 
+/** Sube cuando cambia la forma de `Manifest`: una caché con otro esquema se descarga de nuevo. */
+export const MANIFEST_SCHEMA = 2;
+
+export interface SlimBucketDef {
+  hash: number;
+  name: string;
+  /** Cuántos ítems caben (incluido el equipado, en los buckets de equipo). */
+  itemCount: number;
+}
+
 export interface Manifest {
+  schema: number;
   version: string;
   language: string;
   items: Record<number, SlimItemDef>;
@@ -43,4 +54,5 @@ export interface Manifest {
   itemCategories: Record<number, SlimNamedDef>;
   socketCategories: Record<number, SlimNamedDef>;
   socketTypes: Record<number, SlimSocketTypeDef>;
+  buckets: Record<number, SlimBucketDef>;
 }

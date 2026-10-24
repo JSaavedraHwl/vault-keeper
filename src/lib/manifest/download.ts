@@ -6,6 +6,7 @@ import {
 import { createHttpClient } from "../bungie/client";
 import {
   MANIFEST_LANGUAGE,
+  MANIFEST_SCHEMA,
   type Manifest,
   type SlimItemDef,
   type SlimNamedDef,
@@ -19,6 +20,7 @@ const TABLES = [
   "DestinyItemCategoryDefinition",
   "DestinySocketCategoryDefinition",
   "DestinySocketTypeDefinition",
+  "DestinyInventoryBucketDefinition",
 ] as const;
 
 export async function fetchRemoteVersion(): Promise<string> {
@@ -91,7 +93,17 @@ export async function downloadManifest(): Promise<Manifest> {
     };
   }
 
+  const buckets: Manifest["buckets"] = {};
+  for (const def of Object.values(tables.DestinyInventoryBucketDefinition)) {
+    buckets[def.hash] = {
+      hash: def.hash,
+      name: def.displayProperties?.name ?? "",
+      itemCount: def.itemCount,
+    };
+  }
+
   return {
+    schema: MANIFEST_SCHEMA,
     version: destinyManifest.version,
     language: MANIFEST_LANGUAGE,
     items,
@@ -99,5 +111,6 @@ export async function downloadManifest(): Promise<Manifest> {
     itemCategories: named(tables.DestinyItemCategoryDefinition),
     socketCategories: named(tables.DestinySocketCategoryDefinition),
     socketTypes,
+    buckets,
   };
 }

@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { downloadManifest, fetchRemoteVersion } from "./download";
-import { MANIFEST_LANGUAGE, type Manifest } from "./types";
+import { MANIFEST_LANGUAGE, MANIFEST_SCHEMA, type Manifest } from "./types";
 
 export type { Manifest, SlimItemDef, SlimStatDef } from "./types";
 
@@ -35,7 +35,9 @@ async function writeDisk(manifest: Manifest) {
 }
 
 async function load(): Promise<Manifest> {
-  const cached = state.manifest ?? (await readDisk());
+  const found = state.manifest ?? (await readDisk());
+  // Una caché con otro esquema (de una versión anterior de la app) no sirve: se descarga de nuevo.
+  const cached = found && found.schema === MANIFEST_SCHEMA ? found : undefined;
 
   if (cached && Date.now() - state.checkedAt < VERSION_CHECK_INTERVAL_MS) {
     state.manifest = cached;
