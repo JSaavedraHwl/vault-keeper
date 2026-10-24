@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import { makeItem } from "../classify/testing";
 import type { ClassificationResult, Verdict } from "../classify/types";
 import type { CharacterInfo, NormalizedItem } from "../inventory/types";
@@ -87,7 +87,7 @@ describe("limitItems / límite de prueba", () => {
     const plan = buildPlan(c, req("lock-keepers", { limit: 2 }));
     expect(plan.rounds[0].actions).toHaveLength(6); // 2 ítems × 3 acciones
     expect(new Set(plan.rounds[0].actions.map((a) => a.itemId)).size).toBe(2);
-    expect(plan.rounds[0].note).toMatch(/limitada a 2/);
+    expect(plan.rounds[0].note).toMatch(/2 ítems/);
   });
 
   it("un límite de 1 deja exactamente un ítem; menos de 1 se trata como 1", () => {
@@ -106,12 +106,86 @@ describe("limitItems / límite de prueba", () => {
   });
 });
 
+describe("bloquear en masa: todas las tandas, no solo la primera", () => {
+  const many = (n: number) => Array.from({ length: n }, () => gun());
+  const keepAll = (items: NormalizedItem[]) => Object.fromEntries(items.map((i) => [i.id, "keep" as const]));
+
+  it("480 ítems por bloquear se ejecutan completos, en tandas de 50", () => {
+    const items = many(480);
+    const ex = prepareExecution(ctx(items, keepAll(items)), req("lock-keepers"), items.map((i) => i.id));
+    expect(ex.rounds.map((r) => r.actions.length)).toEqual([...Array(9).fill(50), 30]);
+    expect(ex.rounds.reduce((n, r) => n + r.actions.length, 0)).toBe(480);
+    expect(ex.omitted).toEqual([]);
+    expect(ex.remainingRounds).toBe(0);
+    expect(new Set(ex.rounds.flatMap((r) => r.actions.map((a) => a.itemId))).size).toBe(480);
+  });
+
+  it("mover basura NO se encadena: solo la primera ronda (hay que desmantelar entre rondas)", () => {
+    const items = many(30);
+    const c = ctx(items, Object.fromEntries(items.map((i) => [i.id, "junk" as const])), {
+      characters: [{ ...chars[0], free: { kinetic: 9 } }],
+    });
+    const ex = prepareExecution(c, req("move-junk"), items.map((i) => i.id));
+    expect(ex.rounds).toHaveLength(1);
+    expect(ex.rounds[0].actions).toHaveLength(9);
+    expect(ex.remainingRounds).toBe(3);
+    expect(ex.omitted).toHaveLength(21); // confirmados de rondas posteriores: no se ejecutan ahora
+  });
+
+  it("lo que cambió entre la vista previa y la ejecución se salta, y el resto se bloquea", () => {
+    const items = many(120);
+    items[7] = gun({ locked: true }); // alguien lo bloqueó mientras tanto
+    const ids = items.map((i) => i.id);
+    const ex = prepareExecution(ctx(items, keepAll(items)), req("lock-keepers"), ids);
+    expect(ex.rounds.reduce((n, r) => n + r.actions.length, 0)).toBe(119);
+    expect(ex.omitted.map((o) => o.itemId)).toEqual([items[7].id]);
+  });
+
+  it("si no se confirmó nada, no queda ninguna tanda (ni vacía) y todo lo del plan se ignora", () => {
+    const items = many(120);
+    const ex = prepareExecution(ctx(items, keepAll(items)), req("lock-keepers"), []);
+    expect(ex.rounds).toEqual([]);
+    expect(ex.omitted).toEqual([]);
+  });
+
+  it("si solo se confirman ítems de la última tanda, se descartan las vacías y se renumeran", () => {
+    const items = many(120);
+    const last = items.slice(110).map((i) => i.id);
+    const ex = prepareExecution(ctx(items, keepAll(items)), req("lock-keepers"), last);
+    expect(ex.rounds).toHaveLength(1);
+    expect(ex.rounds[0].index).toBe(0);
+    expect(ex.rounds[0].actions).toHaveLength(10);
+  });
+
+  it("un ítem no confirmado no se bloquea aunque sea válido", () => {
+    const items = many(60);
+    const ex = prepareExecution(ctx(items, keepAll(items)), req("lock-keepers"), items.slice(0, 55).map((i) => i.id));
+    expect(ex.rounds.reduce((n, r) => n + r.actions.length, 0)).toBe(55);
+  });
+
+  it("el límite de prueba cuenta el TOTAL (no solo la primera tanda) y reparte en tandas", () => {
+    const items = many(480);
+    const c = ctx(items, keepAll(items));
+    expect(buildPlan(c, req("lock-keepers", { limit: 1 })).rounds.map((r) => r.actions.length)).toEqual([1]);
+    expect(buildPlan(c, req("lock-keepers", { limit: 120 })).rounds.map((r) => r.actions.length)).toEqual([50, 50, 20]);
+    expect(buildPlan(c, req("lock-keepers", { limit: 9999 })).rounds).toHaveLength(10);
+  });
+
+  it("con el rodeo (3 acciones por ítem) el límite y las tandas siguen contando ítems", () => {
+    const items = many(60);
+    const c = ctx(items, keepAll(items), { capabilities: { vaultLock: false } });
+    const plan = buildPlan(c, req("lock-keepers", { limit: 55 }));
+    expect(plan.rounds.map((r) => new Set(r.actions.map((a) => a.itemId)).size)).toEqual([50, 5]);
+    expect(plan.rounds[0].actions).toHaveLength(150);
+  });
+});
+
 describe("prepareExecution: lo que de verdad se ejecuta", () => {
   it("ejecuta solo lo confirmado que sigue siendo válido (primera ronda)", () => {
     const items = [gun(), gun(), gun()];
     const c = ctx(items, Object.fromEntries(items.map((i) => [i.id, "junk" as const])));
     const ex = prepareExecution(c, req("move-junk"), [items[0].id, items[1].id]);
-    expect(ex.round?.actions.map((a) => a.itemId)).toEqual([items[0].id, items[1].id]);
+    expect(ex.rounds[0]?.actions.map((a) => a.itemId)).toEqual([items[0].id, items[1].id]);
     expect(ex.omitted).toEqual([]);
   });
 
@@ -120,7 +194,7 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
     const verdicts = { [locked.id]: "junk", [equipped.id]: "junk", [kept.id]: "keep", [fine.id]: "junk" } as const;
     const c = ctx([locked, equipped, kept, fine], verdicts);
     const ex = prepareExecution(c, req("move-junk"), [locked.id, equipped.id, kept.id, fine.id]);
-    expect(ex.round?.actions.map((a) => a.itemId)).toEqual([fine.id]);
+    expect(ex.rounds[0]?.actions.map((a) => a.itemId)).toEqual([fine.id]);
     expect(ex.omitted.map((o) => o.itemId).sort()).toEqual([equipped.id, kept.id, locked.id].sort());
     expect(ex.omitted[0].reason).toMatch(/cambió desde la vista previa/);
   });
@@ -129,7 +203,7 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
     const real = gun();
     const c = ctx([real], { [real.id]: "junk" });
     const ex = prepareExecution(c, req("move-junk"), [real.id, "id-inventado"]);
-    expect(ex.round?.actions.map((a) => a.itemId)).toEqual([real.id]);
+    expect(ex.rounds[0]?.actions.map((a) => a.itemId)).toEqual([real.id]);
     expect(ex.omitted.map((o) => o.itemId)).toEqual(["id-inventado"]);
   });
 
@@ -137,7 +211,7 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
     const [a, b] = [gun(), gun()];
     const c = ctx([a, b], { [a.id]: "junk", [b.id]: "junk" });
     const ex = prepareExecution(c, req("move-junk"), [a.id]);
-    expect(ex.round?.actions.map((x) => x.itemId)).toEqual([a.id]);
+    expect(ex.rounds[0]?.actions.map((x) => x.itemId)).toEqual([a.id]);
   });
 
   it("nunca ejecuta más que la primera ronda ni excede la capacidad, aunque se confirmen ítems de otras", () => {
@@ -146,7 +220,8 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
       characters: [{ ...chars[0], free: { kinetic: 5 } }],
     });
     const ex = prepareExecution(c, req("move-junk"), items.map((i) => i.id));
-    expect(ex.round?.actions).toHaveLength(5);
+    expect(ex.rounds).toHaveLength(1);
+    expect(ex.rounds[0].actions).toHaveLength(5);
     expect(ex.remainingRounds).toBe(2);
     expect(ex.omitted).toHaveLength(7);
   });
@@ -154,7 +229,7 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
   it("sin nada válido: no hay ronda y todo lo confirmado queda como omitido", () => {
     const k = gun();
     const ex = prepareExecution(ctx([k], { [k.id]: "keep" }), req("move-junk"), [k.id]);
-    expect(ex.round).toBeNull();
+    expect(ex.rounds).toEqual([]);
     expect(ex.omitted).toHaveLength(1);
   });
 
@@ -162,6 +237,6 @@ describe("prepareExecution: lo que de verdad se ejecuta", () => {
     const items = [gun(), gun(), gun()];
     const c = ctx(items, Object.fromEntries(items.map((i) => [i.id, "junk" as const])));
     const ex = prepareExecution(c, req("move-junk", { limit: 1 }), items.map((i) => i.id));
-    expect(ex.round?.actions).toHaveLength(3);
+    expect(ex.rounds[0].actions).toHaveLength(3);
   });
 });

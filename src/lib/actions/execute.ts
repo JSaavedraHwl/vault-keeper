@@ -41,6 +41,47 @@ function toTask(action: PlannedAction, actions: InventoryActions): QueueTask {
   };
 }
 
+/**
+ * Ejecuta varias rondas seguidas como UNA sola ejecución: mismo `runId` (así «Deshacer» revierte todo),
+ * progreso acumulado, y parada en cuanto la cola se detiene (cancelar o error fatal). Lo que no llega a
+ * ejecutarse se devuelve como `skipped`, y no se anota como hecho en el registro.
+ */
+export async function executeRounds(
+  plan: Pick<ActionPlan, "id">,
+  rounds: readonly PlanRound[],
+  options: ExecuteOptions,
+): Promise<ExecuteOutcome> {
+  const runId = options.runId ?? randomUUID();
+  const total = rounds.reduce((sum, r) => sum + r.actions.length, 0);
+  const results: ActionResult[] = [];
+  let stopped: QueueOutcome["stopped"] = null;
+
+  for (const round of rounds) {
+    if (stopped) {
+      const error = {
+        kind: stopped.reason === "fatal" ? stopped.error.kind : ("unknown" as const),
+        message: stopped.reason === "fatal" ? "No se ejecutó: la cola se detuvo antes." : "Cancelado antes de ejecutarse.",
+      };
+      for (const a of round.actions) {
+        const r: ActionResult = { actionId: a.id, itemInstanceId: a.itemId, ok: false, skipped: true, error };
+        results.push(r);
+        options.onResult?.(r, results.length, total);
+      }
+      continue;
+    }
+    const offset = results.length;
+    const outcome = await executeRound(plan, round, {
+      ...options,
+      runId,
+      onResult: (r, done) => options.onResult?.(r, offset + done, total),
+    });
+    results.push(...outcome.results);
+    stopped = outcome.stopped;
+  }
+
+  return { runId, results, stopped };
+}
+
 /** Ejecuta una ronda del plan y registra cada acción en el log de auditoría. */
 export async function executeRound(
   plan: Pick<ActionPlan, "id">,

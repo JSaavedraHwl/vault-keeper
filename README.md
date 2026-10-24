@@ -92,9 +92,12 @@ eso lo haces tú en el juego.
 
 Desde `/cleanup`, panel **Acciones**. Todo requiere el permiso «Mover o equipar objetos de Destiny» y un clic tuyo:
 
-1. **Bloquear los que conservo** (`keep` y `archive`).
+1. **Bloquear los que conservo** (`keep` y `archive`). Se hace **todo de una vez**: si son 480 ítems, se ejecutan
+   en tandas automáticas de 50 una tras otra, como una sola ejecución (un único «Deshacer» las revierte todas).
+   Tarda unos 250 ms por ítem (480 ≈ 2 min).
 2. **Mover basura a [personaje]**, por rondas del tamaño del espacio libre del personaje (10 por ranura, contando lo
-   equipado) y de un tope de 50 ítems por ejecución. Entre rondas desmantelas en el juego lo movido.
+   equipado) y de un tope de 50 ítems por ronda. Aquí las rondas **no** se encadenan: entre una y otra desmantelas
+   en el juego lo movido y pulsas «Siguiente ronda».
 3. **Deshacer última ejecución** (devuelve al alijo lo movido y restaura candados; lo desmantelado no se recupera).
 
 Cada acción pasa por: vista previa del plan → **Simular** (no cambia nada) o **Ejecutar** → progreso en vivo con
@@ -115,6 +118,7 @@ Cada acción pasa por: vista previa del plan → **Simular** (no cambia nada) o 
 | Simulación completa | `https://localhost:3000/cleanup?sim=1` | Alijo y personajes de ejemplo en memoria (con «simular desmantelado»); no necesita sesión. |
 | Mock de acciones | `ACTIONS_MODE=mock` | Lee tu cuenta real, pero mover y bloquear nunca llaman a Bungie. |
 | Datos de ejemplo en el análisis | `CLASSIFY_SIMULATION=1` | `/cleanup` usa los datos de `fixtures/`. |
+| Tamaño de tanda | `ACTIONS_MAX_ITEMS_PER_RUN=1..500` | Cambia el tope de ítems por tanda/ronda (por defecto 50). |
 
 ## 8. Tests
 

@@ -20,3 +20,13 @@ export const DEFAULT_ACTIONS_CONFIG: ActionsConfig = {
 };
 
 export const actionsConfig: ActionsConfig = DEFAULT_ACTIONS_CONFIG;
+
+/**
+ * Configuración efectiva. `ACTIONS_MAX_ITEMS_PER_RUN` (entero de 1 a 500) cambia el tamaño de tanda:
+ * útil para probar con tandas pequeñas o para repartir un lote grande en menos tandas.
+ */
+export function getActionsConfig(env: Record<string, string | undefined> = process.env): ActionsConfig {
+  const raw = Number(env.ACTIONS_MAX_ITEMS_PER_RUN);
+  const valid = Number.isInteger(raw) && raw >= 1 && raw <= 500;
+  return valid ? { ...DEFAULT_ACTIONS_CONFIG, maxItemsPerRun: raw } : DEFAULT_ACTIONS_CONFIG;
+}

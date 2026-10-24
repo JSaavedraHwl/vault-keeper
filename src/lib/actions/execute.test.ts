@@ -6,7 +6,7 @@ import { MockInventoryActions, type MockItem } from "../bungie/actions/mock";
 import { makeItem } from "../classify/testing";
 import type { ClassificationResult } from "../classify/types";
 import { appendAudit, lastRun, readAudit } from "./audit";
-import { executeRound } from "./execute";
+import { executeRound, executeRounds } from "./execute";
 import { planLockKeepers, planMoveJunk } from "./plan";
 import { planUndo } from "./undo";
 import { VAULT } from "./types";
@@ -121,6 +121,120 @@ describe("ejecución de rondas con el mock", () => {
     const { writeFile } = await import("node:fs/promises");
     await writeFile(auditFile, '{"runId":"a","ok":true,"dryRun":false}\n{roto\n{"runId":"a","ok":true,"dryRun":false}\n');
     expect(await readAudit(auditFile)).toHaveLength(2);
+  });
+});
+
+describe("bloquear en masa (varias tandas como una sola ejecución)", () => {
+  const setupMany = (n: number, options: Partial<ConstructorParameters<typeof MockInventoryActions>[0]> = {}) => {
+    const items = Array.from({ length: n }, () => makeItem({ slot: "kinetic" }));
+    const mock = new MockInventoryActions({
+      items: Object.fromEntries(items.map((i) => [i.id, { location: VAULT, locked: false }])),
+      ...options,
+    });
+    const results = items.map((i) => verdict(i.id, "keep"));
+    const plan = planLockKeepers({ items, results, characterId: CHAR, vaultLockSupported: true });
+    return { items, mock, plan };
+  };
+
+  it("480 ítems: se bloquean los 480 (no solo los 50 de la primera tanda)", async () => {
+    const { items, mock, plan } = setupMany(480);
+    expect(plan.rounds).toHaveLength(10);
+
+    const out = await executeRounds(plan, plan.rounds, { actions: mock, auditFile, ...fast });
+
+    expect(out.results).toHaveLength(480);
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(out.stopped).toBeNull();
+    expect(items.every((i) => mock.items[i.id].locked)).toBe(true);
+  });
+
+  it("todas las tandas comparten runId y «Deshacer» revierte el lote completo", async () => {
+    const { items, mock, plan } = setupMany(120);
+    const out = await executeRounds(plan, plan.rounds, { actions: mock, auditFile, ...fast });
+
+    const run = (await lastRun(auditFile))!;
+    expect(run.runId).toBe(out.runId);
+    expect(run.entries).toHaveLength(120);
+    expect(new Set((await readAudit(auditFile)).map((e) => e.runId)).size).toBe(1);
+
+    const undo = planUndo(run.entries);
+    expect(undo.rounds[0].actions).toHaveLength(120);
+    await executeRound(undo, undo.rounds[0], { actions: mock, auditFile, ...fast });
+    expect(items.every((i) => !mock.items[i.id].locked)).toBe(true);
+  });
+
+  it("el progreso es acumulado: 1..N sobre el total, no se reinicia en cada tanda", async () => {
+    const { mock, plan } = setupMany(120);
+    const seen: [number, number][] = [];
+    await executeRounds(plan, plan.rounds, {
+      actions: mock, auditFile, ...fast,
+      onResult: (_r, done, total) => seen.push([done, total]),
+    });
+    expect(seen).toHaveLength(120);
+    expect(seen[0]).toEqual([1, 120]);
+    expect(seen[49]).toEqual([50, 120]);
+    expect(seen[50]).toEqual([51, 120]);
+    expect(seen.at(-1)).toEqual([120, 120]);
+  });
+
+  it("al cancelar a mitad de una tanda, lo restante (incluidas tandas enteras) no se ejecuta ni se registra como hecho", async () => {
+    const { items, mock, plan } = setupMany(120);
+    const controller = new AbortController();
+    const out = await executeRounds(plan, plan.rounds, {
+      actions: mock, auditFile, ...fast, signal: controller.signal,
+      onResult: (_r, done) => { if (done === 60) controller.abort(); },
+    });
+
+    expect(out.stopped).toEqual({ reason: "cancelled" });
+    const locked = items.filter((i) => mock.items[i.id].locked).length;
+    expect(locked).toBe(60);
+    expect(out.results).toHaveLength(120);
+    expect(out.results.filter((r) => r.ok && !r.skipped)).toHaveLength(60);
+    expect(out.results.filter((r) => r.skipped)).toHaveLength(60);
+
+    const log = await readAudit(auditFile);
+    expect(log.filter((e) => e.ok)).toHaveLength(60); // lo no ejecutado no cuenta como hecho
+  });
+
+  it("un error fatal (actividad en curso) en una tanda detiene las siguientes", async () => {
+    const { items, mock, plan } = setupMany(120, { failures: {} });
+    const target = plan.rounds[1].actions[3].itemId; // dentro de la 2ª tanda
+    const failing = new MockInventoryActions({
+      items: Object.fromEntries(items.map((i) => [i.id, { location: VAULT, locked: false }])),
+      failures: { [target]: { code: 1671 } },
+    });
+    const out = await executeRounds(plan, plan.rounds, { actions: failing, auditFile, ...fast });
+
+    expect(out.stopped).toMatchObject({ reason: "fatal", error: { kind: "in_activity" } });
+    expect(items.filter((i) => failing.items[i.id].locked)).toHaveLength(53); // 50 + 3 antes del fallo
+    expect(out.results.filter((r) => r.skipped).length).toBe(120 - 54);
+    void mock;
+  });
+
+  it("los errores de un ítem no frenan el lote: se reportan y el resto se bloquea", async () => {
+    const { items, plan } = setupMany(120);
+    const bad = [plan.rounds[0].actions[5].itemId, plan.rounds[2]?.actions[0]?.itemId ?? plan.rounds[1].actions[0].itemId];
+    const mock = new MockInventoryActions({
+      items: Object.fromEntries(items.map((i) => [i.id, { location: VAULT, locked: false }])),
+      failures: Object.fromEntries(bad.map((id) => [id, { code: 1623 }])),
+    });
+    const out = await executeRounds(plan, plan.rounds, { actions: mock, auditFile, ...fast });
+    expect(out.stopped).toBeNull();
+    expect(out.results.filter((r) => !r.ok).map((r) => r.itemInstanceId).sort()).toEqual([...bad].sort());
+    expect(items.filter((i) => mock.items[i.id].locked)).toHaveLength(118);
+  });
+
+  it("la simulación recorre todas las tandas sin llamar a la API", async () => {
+    const { mock, plan } = setupMany(120);
+    const out = await executeRounds(plan, plan.rounds, { actions: mock, dryRun: true, auditFile, ...fast });
+    expect(out.results).toHaveLength(120);
+    expect(mock.calls).toEqual([]);
+    expect(await lastRun(auditFile)).toBeNull();
+  });
+
+  it("sin tandas: nada que hacer", async () => {
+    const { mock } = setupMany(1);
+    expect(await executeRounds({ id: "p" }, [], { actions: mock, auditFile, ...fast })).toMatchObject({ results: [], stopped: null });
   });
 });
 

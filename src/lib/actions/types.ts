@@ -35,6 +35,14 @@ export type PlannedAction = LockAction | TransferAction;
 
 export type PlanKind = "lock-keepers" | "move-junk" | "undo";
 
+/**
+ * Acciones cuyas rondas se encadenan solas, sin que el usuario tenga que hacer nada entre una y otra.
+ * Bloquear es reversible y no depende del espacio del personaje, así que se hace todo de una vez.
+ * Mover basura NO: entre rondas hay que desmantelar en el juego para liberar espacio.
+ */
+export const CHAINS_ROUNDS: readonly PlanKind[] = ["lock-keepers"];
+export const chainsRounds = (kind: PlanKind) => CHAINS_ROUNDS.includes(kind);
+
 export interface PlanRound {
   index: number;
   actions: PlannedAction[];

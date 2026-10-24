@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { canAccess, wantsSimulation } from "@/app/cleanup/access";
-import { executeRound } from "@/lib/actions/execute";
+import { randomUUID } from "node:crypto";
+import { executeRounds } from "@/lib/actions/execute";
 import type { ExecuteEvent, ResultLine } from "@/lib/actions/events";
 import { PlanError, prepareExecution } from "@/lib/actions/service";
 import { loadWorld, toActionsError, withRunLock } from "@/lib/actions/service-io";
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
               : confirmed;
           const execution = prepareExecution(world.ctx, request, ids);
 
-          if (!execution.round) {
+          if (execution.rounds.length === 0) {
             send({
               type: "done",
               summary: {
@@ -88,23 +89,27 @@ export async function POST(req: NextRequest) {
                 stopped: null,
                 results: [],
                 omitted: execution.omitted,
-                remainingRounds: 0,
+                remainingRounds: execution.remainingRounds,
               },
             });
             return;
           }
 
           const characterNames = new Map(world.ctx.characters.map((c) => [c.id, c.classType]));
-          const byId = new Map(execution.round.actions.map((a) => [a.id, a]));
-          const total = execution.round.actions.length;
+          const byId = new Map(execution.rounds.flatMap((r) => r.actions).map((a) => [a.id, a]));
+          const total = byId.size;
           const toLine = (r: { actionId: string; itemInstanceId: string; ok: boolean; skipped?: boolean; error?: ResultLine["error"] }): ResultLine => {
             const action = byId.get(r.actionId)!;
             return { ...r, name: action.name, kind: action.kind, what: describe(action, characterNames) };
           };
 
-          const outcome = await executeRound({ id: execution.plan.id }, execution.round, {
+          // Todas las tandas de una acción encadenable (bloquear) se ejecutan seguidas, como una sola ejecución.
+          const runId = randomUUID();
+          send({ type: "start", runId, total });
+          const outcome = await executeRounds({ id: execution.plan.id }, execution.rounds, {
             actions: world.actions,
             dryRun,
+            runId,
             signal: req.signal,
             auditFile: world.auditFile,
             onResult: (r, done) => send({ type: "progress", line: toLine(r), done, total }),

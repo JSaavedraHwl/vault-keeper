@@ -10,6 +10,7 @@ import { loadOverrides, OVERRIDES_FILE, SIMULATION_OVERRIDES_FILE } from "../cla
 import { loadProfile } from "../classify/profile-store";
 import { analyze } from "../classify/run";
 import { loadVaultData } from "../inventory/vault";
+import { getActionsConfig } from "./actions.config";
 import { AUDIT_FILE, lastRun, MOCK_AUDIT_FILE } from "./audit";
 import { loadCapabilities } from "./capabilities";
 import type { ActionsError } from "./events";
@@ -43,6 +44,7 @@ export async function loadWorld(simulate: boolean): Promise<World> {
         protectedIds: new Set(overrides.alwaysKeep),
         capabilities: { vaultLock: true },
         lastRun: await lastRun(MOCK_AUDIT_FILE),
+        config: getActionsConfig(),
       },
       actions: mock,
       auditFile: MOCK_AUDIT_FILE,
@@ -67,6 +69,7 @@ export async function loadWorld(simulate: boolean): Promise<World> {
       protectedIds: new Set(overrides.alwaysKeep),
       capabilities,
       lastRun: await lastRun(auditFile),
+      config: getActionsConfig(),
     },
     actions: mock
       ? new MockInventoryActions({ items: Object.fromEntries(data.items.map((i) => [i.id, { location: "vault", locked: i.locked }])) })

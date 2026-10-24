@@ -4,7 +4,7 @@ import { DEFAULT_ACTIONS_CONFIG, type ActionsConfig } from "./actions.config";
 import type { Capabilities } from "./capabilities";
 import { planLockKeepers, planMoveJunk } from "./plan";
 import { planUndo } from "./undo";
-import type { ActionPlan, AuditEntry, PlanKind, PlanRound, PlannedAction, SkippedItem } from "./types";
+import { chainsRounds, type ActionPlan, type AuditEntry, type PlanKind, type PlanRound, type PlannedAction, type SkippedItem } from "./types";
 
 /** Error con mensaje pensado para mostrarse al usuario tal cual. */
 export class PlanError extends Error {}
@@ -43,6 +43,34 @@ export function limitItems(round: PlanRound, limit: number): PlanRound {
   return { ...round, actions, note: `${round.note} (limitada a ${keep.size} ítems)` };
 }
 
+/** Agrupa las acciones por ítem, conservando el orden (un ítem puede tener varias acciones seguidas). */
+function groupByItem(actions: readonly PlannedAction[]): PlannedAction[][] {
+  const groups = new Map<string, PlannedAction[]>();
+  for (const a of actions) groups.set(a.itemId, [...(groups.get(a.itemId) ?? []), a]);
+  return [...groups.values()];
+}
+
+/**
+ * Limita el TOTAL de ítems de un plan encadenable (p. ej. «probar con 1») y lo reparte de nuevo
+ * en rondas del tamaño del tope por ejecución.
+ */
+function limitChainedPlan(plan: ActionPlan, limit: number, cap: number): ActionPlan {
+  const items = groupByItem(plan.rounds.flatMap((r) => r.actions)).slice(0, limit);
+  const rounds: PlanRound[] = [];
+  for (let i = 0; i < items.length; i += cap) {
+    rounds.push({
+      index: rounds.length,
+      actions: items.slice(i, i + cap).flat(),
+      note: "",
+    });
+  }
+  rounds.forEach((r, i) => {
+    const n = new Set(r.actions.map((a) => a.itemId)).size;
+    r.note = `Tanda ${i + 1} de ${rounds.length}: ${n} ítems.`;
+  });
+  return { ...plan, rounds };
+}
+
 /** Construye el plan con los datos del momento. Función pura. */
 export function buildPlan(ctx: PlanContext, req: PlanRequest): ActionPlan {
   const config = ctx.config ?? DEFAULT_ACTIONS_CONFIG;
@@ -66,25 +94,30 @@ export function buildPlan(ctx: PlanContext, req: PlanRequest): ActionPlan {
 
   if (req.limit !== undefined && plan.rounds.length > 0) {
     const limit = Math.max(1, Math.floor(req.limit));
-    plan = { ...plan, rounds: [limitItems(plan.rounds[0], limit), ...plan.rounds.slice(1)] };
+    plan = chainsRounds(req.kind)
+      ? limitChainedPlan(plan, limit, config.maxItemsPerRun)
+      : { ...plan, rounds: [limitItems(plan.rounds[0], limit), ...plan.rounds.slice(1)] };
   }
   return plan;
 }
 
 export interface Execution {
   plan: ActionPlan;
-  /** Lo que se va a ejecutar: la primera ronda del plan fresco, restringida a lo confirmado. */
-  round: PlanRound | null;
+  /**
+   * Lo que se va a ejecutar, en orden: las rondas del plan fresco restringidas a lo confirmado.
+   * Si la acción encadena rondas (bloquear) son todas; si no (mover basura), solo la primera.
+   */
+  rounds: PlanRound[];
   /** Confirmado por el usuario pero que ya no cumple las condiciones. */
   omitted: SkippedItem[];
-  /** Rondas que quedan después de esta. */
+  /** Rondas del plan que quedan para más tarde, tras desmantelar (nunca en acciones encadenadas). */
   remainingRounds: number;
 }
 
 /**
  * Decide qué se ejecuta de verdad. Parte siempre de un plan RECALCULADO ahora (nunca del que
- * mandó el navegador) y solo toma de su primera ronda lo que el usuario confirmó. Así nada
- * que haya cambiado desde la vista previa (candado, equipado, veredicto...) llega a ejecutarse.
+ * mandó el navegador) y solo toma de él lo que el usuario confirmó. Así nada que haya cambiado
+ * desde la vista previa (candado, equipado, veredicto...) llega a ejecutarse.
  */
 export function prepareExecution(
   ctx: PlanContext,
@@ -92,21 +125,21 @@ export function prepareExecution(
   confirmedItemIds: readonly string[],
 ): Execution {
   const plan = buildPlan(ctx, { ...req, limit: undefined });
-  const first = plan.rounds[0];
+  const eligible = chainsRounds(req.kind) ? plan.rounds : plan.rounds.slice(0, 1);
   const confirmed = new Set(confirmedItemIds);
   const names = new Map(ctx.items.map((i) => [i.id, i.name]));
 
-  if (!first) return { plan, round: null, omitted: [...confirmed].map(omit(names)), remainingRounds: 0 };
-
-  const allowed = new Set(first.actions.map((a) => a.itemId));
-  const actions: PlannedAction[] = first.actions.filter((a) => confirmed.has(a.itemId));
-  const omitted = [...confirmed].filter((id) => !allowed.has(id)).map(omit(names));
+  const allowed = new Set(eligible.flatMap((r) => r.actions.map((a) => a.itemId)));
+  const rounds = eligible
+    .map((r) => ({ ...r, actions: r.actions.filter((a) => confirmed.has(a.itemId)) }))
+    .filter((r) => r.actions.length > 0)
+    .map((r, i) => ({ ...r, index: i }));
 
   return {
     plan,
-    round: actions.length > 0 ? { ...first, actions } : null,
-    omitted,
-    remainingRounds: Math.max(plan.rounds.length - 1, 0),
+    rounds,
+    omitted: [...confirmed].filter((id) => !allowed.has(id)).map(omit(names)),
+    remainingRounds: plan.rounds.length - eligible.length,
   };
 }
 

@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { ActionsError, ExecuteEvent, ExecutionSummary, PlanResponse, ResultLine } from "@/lib/actions/events";
 import type { PlanKind, PlannedAction } from "@/lib/actions/types";
-import { VAULT } from "@/lib/actions/types";
+import { chainsRounds, VAULT } from "@/lib/actions/types";
 import type { AnalysisData } from "@/lib/classify/analyze-vault";
 import type { CharacterInfo } from "@/lib/inventory/types";
 
@@ -65,15 +65,17 @@ export function ActionsPanel({
     return (id: string) => byId.get(id) ?? "personaje";
   }, [characters]);
 
+  // Lo que se ejecutará: todas las tandas si la acción se encadena (bloquear), o solo la primera ronda
+  // (mover basura: entre rondas hay que desmantelar en el juego).
   const roundItems: RoundItem[] = useMemo(() => {
-    const first = plan?.plan.rounds[0];
-    if (!first) return [];
+    if (!plan) return [];
+    const rounds = chainsRounds(kind) ? plan.plan.rounds : plan.plan.rounds.slice(0, 1);
     const seen = new Map<string, RoundItem>();
-    for (const a of first.actions) {
+    for (const a of rounds.flatMap((r) => r.actions)) {
       if (!seen.has(a.itemId)) seen.set(a.itemId, { id: a.itemId, name: a.name, what: describe(a, label) });
     }
     return [...seen.values()];
-  }, [plan, label]);
+  }, [plan, kind, label]);
 
   const busy = stage === "planning" || stage === "running";
 
@@ -103,8 +105,8 @@ export function ActionsPanel({
       if (!res.ok) return fail(body as ActionsError);
       const response = body as PlanResponse;
       setPlan(response);
-      const size = new Set((response.plan.rounds[0]?.actions ?? []).map((a) => a.itemId)).size;
-      setCount(size);
+      const rounds = chainsRounds(nextKind) ? response.plan.rounds : response.plan.rounds.slice(0, 1);
+      setCount(new Set(rounds.flatMap((r) => r.actions.map((a) => a.itemId))).size);
       setStage("confirm");
     } catch (err) {
       fail({ kind: "other", message: err instanceof Error ? err.message : "Error desconocido." });
@@ -355,6 +357,14 @@ function Confirm(props: {
   const rounds = plan.rounds.length;
   const target = props.character ? `tu ${CLASS_LABELS[props.character.classType]}` : "el personaje";
   const n = Math.min(Math.max(props.count, 1), total);
+  const chained = chainsRounds(props.kind);
+  // Tamaño de una tanda completa = ítems de la primera ronda del plan.
+  const perTanda = Math.max(new Set((plan.rounds[0]?.actions ?? []).map((a) => a.itemId)).size, 1);
+  const tandas = chained ? Math.ceil(n / perTanda) : 1;
+  // Estimación: ~250 ms por llamada a Bungie (proporcional a los ítems elegidos).
+  const totalActions = plan.rounds.reduce((sum, r) => sum + r.actions.length, 0);
+  const seconds = Math.round((totalActions * (n / Math.max(total, 1)) * 250) / 1000);
+  const eta = seconds >= 20 ? ` · tiempo estimado: ${seconds >= 90 ? `${Math.round(seconds / 60)} min` : `${seconds} s`}` : "";
 
   const title =
     props.kind === "lock-keepers"
@@ -380,8 +390,11 @@ function Confirm(props: {
       <div className="rounded border border-blue-500 bg-blue-950/30 p-3">
         <p className="text-base font-semibold text-blue-100">{title}</p>
         <p className="mt-1 text-xs text-blue-200">
-          {plan.rounds[0].note}
-          {rounds > 1 && ` En total ${rounds} rondas.`}
+          {chained
+            ? tandas > 1
+              ? `Se hará todo seguido, en ${tandas} tandas automáticas de hasta 50 ítems${eta}.`
+              : `Una sola tanda${eta}.`
+            : `${plan.rounds[0].note}${rounds > 1 ? ` En total ${rounds} rondas.` : ""}`}
           {props.plan.simulated && " · Datos de simulación."}
         </p>
       </div>
@@ -480,8 +493,11 @@ function Running(props: {
           <div className="h-full bg-green-500 transition-all" style={{ width: `${percent}%` }} />
         </div>
       </div>
+      {props.lines.length > 100 && (
+        <p className="text-xs text-zinc-500">…{props.lines.length - 100} anteriores (el reporte final las incluye)</p>
+      )}
       <ul className="max-h-56 space-y-0.5 overflow-y-auto text-xs">
-        {props.lines.map((l) => (
+        {props.lines.slice(-100).map((l) => (
           <li key={l.actionId} className={l.ok ? "text-green-300" : "text-red-300"}>
             {l.ok ? "✓" : "✗"} {l.name} <span className="text-zinc-500">· {l.what}</span>
             {l.error && <span> — {l.error.message}</span>}
