@@ -57,7 +57,21 @@ export async function GET() {
       return { personaje: `${CLASS_LABELS[c.classType]} · ${c.light}`, ahora: now, siActivasLaVentaja: potential };
     });
 
+    // Lo que la app cree que lleva equipado cada personaje (compáralo con el juego).
+    const equipadoAhora = characters.map((c) => {
+      const slotName = (slot: string) => items.find((i) => i.equipped && i.characterId === c.id && i.slot === slot);
+      const show = (i?: (typeof items)[number]) => (i ? `${i.name}${i.tier === "exotic" ? " (EXÓTICA)" : ""}` : "(vacía)");
+      return {
+        personaje: `${CLASS_LABELS[c.classType]} · ${c.light}`,
+        cinetica: show(slotName("kinetic")),
+        energia: show(slotName("energy")),
+        pesada: show(slotName("power")),
+      };
+    });
+
     return NextResponse.json({
+      generadoEn: new Date().toISOString(),
+      equipadoAhora,
       armas: { total: items.length, enAlijo: items.filter((i) => i.location === "vault").length, enPersonajes: items.filter((i) => i.location === "character").length, equipadas: items.filter((i) => i.equipped).length },
       artefacto: {
         nombre: artifact.name,

@@ -16,6 +16,8 @@ export interface GearCharacter extends CharacterInfo {
 }
 
 export interface GearData {
+  /** Cuándo se leyó la cuenta (ISO): la pantalla muestra su antigüedad, porque el juego sigue cambiando. */
+  generatedAt: string;
   /** Armas del alijo y de los personajes (con `location`, `characterId` y `equipped`). */
   items: NormalizedItem[];
   characters: GearCharacter[];
@@ -77,7 +79,12 @@ export function buildGearData(profile: DestinyProfileResponse, manifest: Manifes
     weaponTypesOf(manifest),
   );
 
-  return { items, characters, artifact: { name: manifest.artifact?.name, perks, unparsed } };
+  return {
+    generatedAt: new Date().toISOString(),
+    items,
+    characters,
+    artifact: { name: manifest.artifact?.name, perks, unparsed },
+  };
 }
 
 /** Lee la cuenta y devuelve las armas con todo lo necesario para filtrar y equipar. */

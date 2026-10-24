@@ -6,7 +6,7 @@ import { loadGearData } from "../inventory/gear";
 import { getActionsConfig } from "./actions.config";
 import { AUDIT_FILE, MOCK_AUDIT_FILE } from "./audit";
 import { executeRounds } from "./execute";
-import { planEquipWeapon } from "./plan-equip";
+import { planEquipWeapon, planSendToCharacter } from "./plan-equip";
 import { isMockMode, withRunLock } from "./service-io";
 import { VAULT, type ActionPlan, type ActionResult } from "./types";
 
@@ -23,18 +23,23 @@ export interface EquipOutcome {
 
 export class EquipError extends Error {}
 
+/** «equip»: traerla y equiparla. «send»: dejarla en el inventario del personaje, sin equiparla. */
+export type EquipMode = "equip" | "send";
+
 /** Resuelve qué se va a hacer, con los datos del momento. Función pura. */
 export function buildEquipPlan(
   gear: Pick<GearData, "items" | "characters">,
   itemId: string,
   characterId: string,
   dryRun: boolean,
+  mode: EquipMode = "equip",
 ): ActionPlan {
   const item = gear.items.find((i) => i.id === itemId);
   if (!item) throw new EquipError("El arma ya no está donde se esperaba. Recarga la pantalla.");
   const character = gear.characters.find((c) => c.id === characterId);
   if (!character) throw new EquipError("No se encontró el personaje elegido.");
-  return planEquipWeapon({ item, character, items: gear.items, dryRun });
+  const plan = mode === "send" ? planSendToCharacter : planEquipWeapon;
+  return plan({ item, character, items: gear.items, dryRun });
 }
 
 function describeStep(a: ActionPlan["rounds"][number]["actions"][number], names: Map<string, string>): string {
@@ -49,11 +54,12 @@ export async function equipWeapon(args: {
   itemId: string;
   characterId: string;
   dryRun: boolean;
+  mode?: EquipMode;
   signal?: AbortSignal;
 }): Promise<EquipOutcome> {
   return withRunLock(async () => {
     const gear = await loadGearData();
-    const plan = buildEquipPlan(gear, args.itemId, args.characterId, args.dryRun);
+    const plan = buildEquipPlan(gear, args.itemId, args.characterId, args.dryRun, args.mode);
 
     if (plan.rounds.length === 0) {
       return { ok: false, dryRun: args.dryRun, plan, steps: [], blocked: plan.warnings };

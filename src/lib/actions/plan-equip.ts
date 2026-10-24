@@ -34,7 +34,7 @@ export function planEquipWeapon(input: {
     return plan;
   }
   if (!equip.canEquip) {
-    plan.warnings.push(...equip.problems);
+    plan.warnings.push(...equip.blockers);
     return plan;
   }
 
@@ -62,6 +62,64 @@ export function planEquipWeapon(input: {
 
   plan.rounds.push({ index: 0, actions, note: `Equipar ${item.name} en ${slotName.number.toLowerCase()} (${slotName.name.toLowerCase()}).` });
   // Avisos informativos (de dónde sale), que no impiden hacerlo.
-  plan.warnings.push(...equip.problems);
+  plan.warnings.push(...equip.notes);
+  return plan;
+}
+
+/**
+ * Plan para mandar un arma al INVENTARIO de un personaje sin equiparla (desde el alijo o desde otro
+ * personaje). Sirve cuando no se puede equipar ahora (p. ej. ya llevas otra exótica) pero se quiere
+ * tenerla a mano. Si algo lo impide, el plan sale sin rondas y con los motivos en `warnings`.
+ */
+export function planSendToCharacter(input: {
+  item: NormalizedItem;
+  character: Pick<CharacterInfo, "id" | "free">;
+  items: readonly NormalizedItem[];
+  dryRun?: boolean;
+}): ActionPlan {
+  const { item, character } = input;
+  const equip = planEquip(item, character, input.items);
+
+  const plan: ActionPlan = {
+    id: randomUUID(),
+    kind: "equip",
+    createdAt: new Date().toISOString(),
+    dryRun: input.dryRun ?? false,
+    targetCharacterId: character.id,
+    rounds: [],
+    skipped: [],
+    warnings: [],
+  };
+
+  if (equip.alreadyThere) {
+    plan.warnings.push(
+      equip.alreadyEquipped ? `${item.name} ya está equipada en este personaje.` : `${item.name} ya está en el inventario de este personaje.`,
+    );
+    return plan;
+  }
+  if (!equip.canSend) {
+    plan.warnings.push(...equip.sendBlockers);
+    return plan;
+  }
+
+  const base = { itemId: item.id, hash: item.hash, name: item.name };
+  const actions: PlannedAction[] = [];
+  if (equip.from === "other-character") {
+    actions.push({ ...base, id: "send-1", kind: "transfer", from: item.characterId!, to: VAULT, stackSize: 1, reason: "Paso previo: sale del otro personaje." });
+  }
+  actions.push({
+    ...base,
+    ...(actions.length > 0 && { requires: [actions[0].id] }),
+    id: `send-${actions.length + 1}`,
+    kind: "transfer",
+    from: VAULT,
+    to: character.id,
+    stackSize: 1,
+    reason: "Mandar al inventario del personaje, sin equiparla.",
+  });
+
+  const slotName = SLOT_LABELS[equip.slot as WeaponSlot];
+  plan.rounds.push({ index: 0, actions, note: `Mandar ${item.name} al inventario (${slotName.number.toLowerCase()}, ${slotName.name.toLowerCase()}).` });
+  plan.warnings.push(...equip.notes);
   return plan;
 }

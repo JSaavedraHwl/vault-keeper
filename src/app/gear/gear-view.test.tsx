@@ -16,6 +16,7 @@ const vaultKinetic = weapon("kinetic", "Rifle del alijo");
 const vaultPower = weapon("power", "Cohete del alijo", { type: "Lanzacohetes", champions: [{ type: "unstoppable", via: ["item"] }] });
 
 const data: GearData = {
+  generatedAt: "2026-10-24T12:00:00.000Z",
   items: [equippedKinetic, equippedEnergy, vaultKinetic, vaultPower],
   characters: [
     { id: "c1", classType: "warlock", light: 2000, free: { kinetic: 3, energy: 3, power: 3 }, activeArtifactPerks: [10] },
@@ -101,6 +102,12 @@ describe("pantalla Equipar", () => {
 
   it("sin personajes, avisa en vez de romper", () => {
     expect(html({ ...data, characters: [] })).toContain("No se encontraron personajes");
+  });
+
+  it("muestra la antigüedad de los datos y un botón para actualizarlos", () => {
+    const out = html();
+    expect(out).toMatch(/Datos de (ahora mismo|hace \d+ (s|min))/);
+    expect(out).toContain(">Actualizar<");
   });
 
   it("no hay panel de selección hasta elegir un arma", () => {

@@ -184,6 +184,42 @@ describe("equipar: ranura, reemplazo y conflictos", () => {
     expect(planEquip(w, char({ power: 0 }), [w]).canEquip).toBe(true);
   });
 
+  it("separa lo que BLOQUEA de lo que solo INFORMA", () => {
+    const exoticEquipped = equipped("kinetic", { tier: "exotic" });
+    const exoticNew = gun("energy", { tier: "exotic" }); // en el alijo
+    const plan = planEquip(exoticNew, char(), [exoticEquipped, exoticNew]);
+    expect(plan.blockers.join(" ")).toMatch(/exótica/);
+    expect(plan.blockers.join(" ")).not.toMatch(/alijo/);
+    expect(plan.notes.join(" ")).toMatch(/Está en el alijo/); // informativo: no es un bloqueo
+    expect(plan.canEquip).toBe(false);
+    expect(plan.problems).toEqual([...plan.blockers, ...plan.notes]);
+  });
+
+  it("estar en el alijo no bloquea: solo informa", () => {
+    const plan = planEquip(gun("kinetic"), char(), []);
+    expect(plan.blockers).toEqual([]);
+    expect(plan.notes.join(" ")).toMatch(/alijo/);
+    expect(plan.canEquip).toBe(true);
+  });
+
+  it("se puede mandar al inventario aunque una exótica impida equiparla", () => {
+    const exoticEquipped = equipped("kinetic", { tier: "exotic" });
+    const exoticNew = gun("energy", { tier: "exotic" });
+    const plan = planEquip(exoticNew, char(), [exoticEquipped, exoticNew]);
+    expect(plan.canEquip).toBe(false);
+    expect(plan.canSend).toBe(true);
+    expect(plan.sendBlockers).toEqual([]);
+  });
+
+  it("mandar al inventario necesita hueco libre; si ya está en el personaje no hace falta", () => {
+    expect(planEquip(gun("power"), char({ power: 0 }), []).canSend).toBe(false);
+    expect(planEquip(gun("power"), char({ power: 0 }), []).sendBlockers.join(" ")).toMatch(/hueco libre/);
+    const here = gun("power", { location: "character", characterId: "c1" });
+    const plan = planEquip(here, char({ power: 0 }), [here]);
+    expect(plan.alreadyThere).toBe(true);
+    expect(plan.canSend).toBe(false); // nada que mandar
+  });
+
   it("equippedBySlot solo mira lo equipado del personaje pedido", () => {
     const [mine, other, inInv] = [equipped("kinetic"), { ...equipped("energy"), characterId: "c2" }, gun("power", { location: "character", characterId: "c1" })];
     const out = equippedBySlot([mine, other, inInv], "c1");

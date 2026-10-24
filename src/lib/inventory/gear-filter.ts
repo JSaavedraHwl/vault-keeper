@@ -128,10 +128,20 @@ export interface EquipPlan {
   from: "character" | "vault" | "other-character";
   /** El juego no permite dos exóticas de arma equipadas: la que estorba. */
   exoticConflict?: NormalizedItem;
-  /** Bloqueos y avisos para mostrar al usuario, en español. */
+  /** Motivos que IMPIDEN equiparla ahora, en español. */
+  blockers: string[];
+  /** Información que no impide nada (p. ej. de dónde sale el arma). */
+  notes: string[];
+  /** blockers + notes, por compatibilidad. */
   problems: string[];
   /** false si hay algo que impide equiparla ahora mismo. */
   canEquip: boolean;
+  /** Ya está en el personaje (en su inventario o equipada): no hace falta mandarla. */
+  alreadyThere: boolean;
+  /** Se puede mandar al inventario del personaje sin equiparla. La exótica equipada no influye. */
+  canSend: boolean;
+  /** Motivos que impiden mandarla al inventario. */
+  sendBlockers: string[];
 }
 
 /** Qué pasaría al equipar `item` en `character`: ranura, reemplazo, movimientos previos y conflictos. */
@@ -150,8 +160,9 @@ export function planEquip(
       : item.characterId === character.id
         ? "character"
         : "other-character";
-  const problems: string[] = [];
-  let canEquip = true;
+  const blockers: string[] = [];
+  const notes: string[] = [];
+  const sendBlockers: string[] = [];
 
   // Dos exóticas de arma a la vez no están permitidas (la de la misma ranura se reemplaza, no estorba).
   const exoticConflict =
@@ -161,24 +172,38 @@ export function planEquip(
           .find((w) => w?.tier === "exotic")
       : undefined;
   if (exoticConflict) {
-    canEquip = false;
-    problems.push(
-      `Ya llevas una exótica equipada (${exoticConflict.name}, ${SLOT_LABELS[exoticConflict.slot as WeaponSlot].name.toLowerCase()}). El juego no permite dos exóticas de arma a la vez: cámbiala antes.`,
+    blockers.push(
+      `Ya llevas una exótica equipada (${exoticConflict.name}, ${SLOT_LABELS[exoticConflict.slot as WeaponSlot].name.toLowerCase()}). El juego no permite dos exóticas de arma a la vez: cámbiala antes, o mándala al inventario sin equiparla.`,
     );
   }
 
-  if (!alreadyEquipped && from !== "character") {
-    // Para equiparla hay que traerla al personaje, y eso necesita un hueco en esa ranura.
+  const alreadyThere = from === "character";
+  if (!alreadyEquipped && !alreadyThere) {
+    // Para traerla al personaje (equipada o no) hace falta un hueco en esa ranura.
     if ((character.free[slot] ?? 0) < 1) {
-      canEquip = false;
-      problems.push(`No hay hueco libre en la ranura de ${SLOT_LABELS[slot].name.toLowerCase()} del personaje para traerla.`);
+      const msg = `No hay hueco libre en la ranura de ${SLOT_LABELS[slot].name.toLowerCase()} del personaje para traerla.`;
+      blockers.push(msg);
+      sendBlockers.push(msg);
     }
-    problems.push(
+    notes.push(
       from === "vault"
         ? "Está en el alijo: se moverá al personaje antes de equiparla."
         : "Está en otro personaje: pasará por el alijo hasta el personaje elegido antes de equiparla.",
     );
   }
 
-  return { slot, replaces: alreadyEquipped ? undefined : current, alreadyEquipped, from, exoticConflict, problems, canEquip: canEquip && !alreadyEquipped };
+  return {
+    slot,
+    replaces: alreadyEquipped ? undefined : current,
+    alreadyEquipped,
+    from,
+    exoticConflict,
+    blockers,
+    notes,
+    problems: [...blockers, ...notes],
+    canEquip: blockers.length === 0 && !alreadyEquipped,
+    alreadyThere,
+    canSend: !alreadyThere && sendBlockers.length === 0,
+    sendBlockers,
+  };
 }

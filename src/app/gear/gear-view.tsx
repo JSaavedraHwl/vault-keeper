@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import type { EquipOutcome } from "@/lib/actions/equip-service";
 import type { ActionsError } from "@/lib/actions/events";
 import {
@@ -62,6 +62,33 @@ export function GearView({ data }: { data: GearData }) {
   const [filters, setFilters] = useState<GearFilters>(NO_FILTERS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [equipping, setEquipping] = useState<Equipping>({ state: "idle" });
+  const [simulateOnly, setSimulateOnly] = useState(false);
+
+  // El juego sigue cambiando mientras tanto: se muestra la antigüedad de los datos y se releen solos
+  // al volver a esta pestaña (p. ej. tras cambiar algo dentro del juego).
+  const [now, setNow] = useState(() => Date.parse(data.generatedAt));
+  const generatedAtRef = useRef(Date.parse(data.generatedAt));
+  useEffect(() => {
+    generatedAtRef.current = Date.parse(data.generatedAt);
+  }, [data.generatedAt]);
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(tick);
+  }, []);
+  const reload = useCallback(() => startRefresh(() => router.refresh()), [router]);
+  useEffect(() => {
+    const onBack = () => {
+      if (document.visibilityState === "visible" && Date.now() - generatedAtRef.current > 15_000) reload();
+    };
+    window.addEventListener("focus", onBack);
+    document.addEventListener("visibilitychange", onBack);
+    return () => {
+      window.removeEventListener("focus", onBack);
+      document.removeEventListener("visibilitychange", onBack);
+    };
+  }, [reload]);
+  const ageSeconds = Math.max(0, Math.round((now - Date.parse(data.generatedAt)) / 1000));
+  const age = ageSeconds < 60 ? `${ageSeconds < 5 ? "ahora mismo" : `hace ${ageSeconds} s`}` : `hace ${Math.round(ageSeconds / 60)} min`;
 
   const character = characters.find((c) => c.id === characterId);
   const activePerks = useMemo(() => new Set(character?.activeArtifactPerks ?? []), [character]);
@@ -83,19 +110,21 @@ export function GearView({ data }: { data: GearData }) {
   const toggleChampion = (c: Champion) =>
     setFilters((f) => ({ ...f, champions: f.champions.includes(c) ? f.champions.filter((x) => x !== c) : [...f.champions, c] }));
 
-  async function equip(dryRun: boolean) {
+  async function equip(mode: "equip" | "send") {
     if (!selected || !character) return;
+    const dryRun = simulateOnly;
     setEquipping({ state: "running", dryRun });
     try {
       const res = await fetch("/api/gear/equip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: selected.id, characterId: character.id, dryRun }),
+        body: JSON.stringify({ itemId: selected.id, characterId: character.id, dryRun, mode }),
       });
       const body = await res.json();
       if (!res.ok) return setEquipping({ state: "error", error: body as ActionsError });
       setEquipping({ state: "done", outcome: body as EquipOutcome });
-      if (!dryRun && (body as EquipOutcome).ok) startRefresh(() => router.refresh());
+      // Se haya podido o no, lo que hay en la cuenta pudo cambiar: se relee.
+      if (!dryRun) reload();
     } catch (err) {
       setEquipping({ state: "error", error: { kind: "other", message: err instanceof Error ? err.message : "Error desconocido." } });
     }
@@ -128,6 +157,16 @@ export function GearView({ data }: { data: GearData }) {
     <main className="mx-auto max-w-7xl p-4 pb-40">
       <header className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-2xl font-bold">Equipar</h1>
+        <span className="text-xs text-zinc-500" title="Los datos son una foto del momento en que se leyó tu cuenta">
+          Datos de {age}
+        </span>
+        <button
+          onClick={reload}
+          disabled={refreshing}
+          className="rounded border border-zinc-600 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {refreshing ? "Actualizando…" : "Actualizar"}
+        </button>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-zinc-400">Personaje:</span>
           <select
@@ -238,22 +277,48 @@ export function GearView({ data }: { data: GearData }) {
                 Irá a la <strong>{SLOT_LABELS[equipPlan.slot].number.toLowerCase()} ({SLOT_LABELS[equipPlan.slot].name.toLowerCase()})</strong> de tu {CLASS_LABELS[character.classType]}
                 {equipPlan.replaces ? <> y reemplazará a <strong>{equipPlan.replaces.name}</strong>.</> : equipPlan.alreadyEquipped ? " (ya la lleva equipada)." : ", que ahora no lleva nada ahí."}
               </p>
-              {equipPlan.problems.map((p) => (
-                <p key={p} className={`text-xs ${equipPlan.canEquip ? "text-zinc-400" : "text-red-300"}`}>{equipPlan.canEquip ? "ℹ" : "⛔"} {p}</p>
+              {/* Lo que impide equiparla (rojo) y la información que no impide nada (gris), por separado */}
+              {equipPlan.blockers.map((p) => (
+                <p key={p} className="text-xs text-red-300">⛔ {p}</p>
               ))}
+              {equipPlan.notes.map((p) => (
+                <p key={p} className="text-xs text-zinc-400">ℹ {p}</p>
+              ))}
+              {equipPlan.exoticConflict && (
+                <p className="text-xs text-zinc-400">
+                  ¿Ya no la llevas equipada? Estos datos son de {age}.{" "}
+                  <button onClick={reload} disabled={refreshing} className="text-blue-400 underline disabled:opacity-50">
+                    Actualizar y volver a comprobar
+                  </button>
+                </p>
+              )}
               <p className="mt-1 text-xs text-zinc-500">Equipar solo funciona en una zona social, en órbita o sin conexión, no en medio de una actividad.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button disabled={equipping.state === "running"} onClick={() => equip(true)} className="rounded bg-zinc-700 px-3 py-2 text-sm hover:bg-zinc-600 disabled:opacity-50">Simular</button>
-              <button
-                disabled={!equipPlan.canEquip || equipping.state === "running"}
-                onClick={() => equip(false)}
-                className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-40"
-              >
-                {equipping.state === "running" && !equipping.dryRun ? "Equipando…" : `Equipar en ${CLASS_LABELS[character.classType]}`}
-              </button>
-              <button onClick={() => { setSelectedId(null); setEquipping({ state: "idle" }); }} className="rounded px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800">Cerrar</button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  disabled={!equipPlan.canEquip || equipping.state === "running"}
+                  onClick={() => equip("equip")}
+                  title={equipPlan.canEquip ? "" : equipPlan.blockers[0] ?? "Ya está equipada"}
+                  className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-40"
+                >
+                  {equipping.state === "running" ? "Trabajando…" : `Equipar en ${CLASS_LABELS[character.classType]}`}
+                </button>
+                <button
+                  disabled={!equipPlan.canSend || equipping.state === "running"}
+                  onClick={() => equip("send")}
+                  title={equipPlan.alreadyThere ? "Ya está en el personaje" : equipPlan.sendBlockers[0] ?? "La deja en el inventario del personaje, sin equiparla"}
+                  className="rounded bg-blue-700 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-40"
+                >
+                  Mandar al inventario
+                </button>
+                <button onClick={() => { setSelectedId(null); setEquipping({ state: "idle" }); }} className="rounded px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800">Cerrar</button>
+              </div>
+              <label className="flex items-center gap-1 text-xs text-zinc-400">
+                <input type="checkbox" checked={simulateOnly} onChange={(e) => setSimulateOnly(e.target.checked)} />
+                Solo simular (no cambia nada)
+              </label>
             </div>
           </div>
 

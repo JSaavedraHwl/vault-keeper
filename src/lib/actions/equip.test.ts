@@ -8,7 +8,7 @@ import type { ItemSlot, NormalizedItem } from "../inventory/types";
 import { lastRun, readAudit } from "./audit";
 import { buildEquipPlan, EquipError } from "./equip-service";
 import { executeRounds } from "./execute";
-import { planEquipWeapon } from "./plan-equip";
+import { planEquipWeapon, planSendToCharacter } from "./plan-equip";
 import { planUndo } from "./undo";
 import { VAULT } from "./types";
 
@@ -108,6 +108,98 @@ describe("planEquipWeapon: los pasos según de dónde sale el arma", () => {
       expect(p.rounds).toEqual([]);
       expect(p.warnings.join(" ")).toMatch(/hueco libre/);
     });
+  });
+});
+
+describe("caso real: exótica del alijo con otra exótica 'equipada' en la pesada", () => {
+  const gearOf = (items: NormalizedItem[]) => ({
+    items,
+    characters: [{ id: C1, classType: "warlock" as const, light: 2000, free: room, activeArtifactPerks: [] }],
+  });
+  const brote = inVault("kinetic", { tier: "exotic", name: "Brote Perfeccionado" });
+  const embaucador = equippedOn("kinetic", C1, { name: 'M-17 "Embaucador"' });
+  const stale = [brote, embaucador, equippedOn("power", C1, { tier: "exotic", name: "Señor del Trueno", type: "Ametralladora" })];
+  const fresh = [brote, embaucador, onChar("power", C1, { tier: "exotic", name: "Señor del Trueno", type: "Ametralladora" })]; // ya no equipada
+
+  it("con la foto desactualizada, equipar se bloquea con el motivo, pero NO como información de «alijo»", () => {
+    const plan = buildEquipPlan(gearOf(stale), brote.id, C1, false);
+    expect(plan.rounds).toEqual([]);
+    expect(plan.warnings.join(" ")).toMatch(/Señor del Trueno/);
+    expect(plan.warnings.join(" ")).not.toMatch(/Está en el alijo/); // eso es informativo, no un bloqueo
+  });
+
+  it("mandarla al inventario sí se puede aunque la exótica estorbe para equiparla", () => {
+    const plan = buildEquipPlan(gearOf(stale), brote.id, C1, false, "send");
+    expect(plan.rounds).toHaveLength(1);
+    expect(plan.rounds[0].actions.map((a) => [a.kind, a.kind === "transfer" ? `${a.from}->${a.to}` : ""])).toEqual([["transfer", `${VAULT}->${C1}`]]);
+    expect(plan.rounds[0].actions.some((a) => a.kind === "equip")).toBe(false);
+  });
+
+  it("con datos frescos (la pesada ya no está equipada), equipar funciona y reemplaza al Embaucador", () => {
+    const plan = buildEquipPlan(gearOf(fresh), brote.id, C1, false);
+    expect(plan.rounds).toHaveLength(1);
+    const equip = plan.rounds[0].actions.at(-1)!;
+    expect(equip).toMatchObject({ kind: "equip", previous: { name: 'M-17 "Embaucador"' } });
+  });
+
+  it("mandarla al inventario la deja en el personaje SIN equipar y sin tocar lo equipado", async () => {
+    const mock = mockFor(fresh);
+    const plan = buildEquipPlan(gearOf(fresh), brote.id, C1, false, "send");
+    const out = await executeRounds(plan, plan.rounds, { actions: mock, auditFile, ...fast });
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(mock.items[brote.id]).toMatchObject({ location: C1 });
+    expect(mock.items[brote.id].equipped).toBeFalsy();
+    expect(mock.items[embaucador.id].equipped).toBe(true);
+    expect(mock.calls.some((c) => c.startsWith("equip"))).toBe(false);
+  });
+
+  it("mandar al inventario también se puede deshacer", async () => {
+    const mock = mockFor(fresh);
+    const plan = buildEquipPlan(gearOf(fresh), brote.id, C1, false, "send");
+    await executeRounds(plan, plan.rounds, { actions: mock, auditFile, ...fast });
+    const undo = planUndo((await lastRun(auditFile))!.entries);
+    await executeRounds(undo, undo.rounds, { actions: mock, auditFile, ...fast });
+    expect(mock.items[brote.id].location).toBe(VAULT);
+  });
+});
+
+describe("mandar al inventario (planSendToCharacter)", () => {
+  const send = (item: NormalizedItem, free: Partial<Record<ItemSlot, number>> = room, items: NormalizedItem[] = [item]) =>
+    planSendToCharacter({ item, character: char(C1, free), items });
+
+  it("desde el alijo: una transferencia", () => {
+    const p = send(inVault("energy"));
+    expect(p.rounds[0].actions).toHaveLength(1);
+    expect(p.rounds[0].actions[0]).toMatchObject({ kind: "transfer", from: VAULT, to: C1 });
+  });
+
+  it("desde otro personaje: pasa por el alijo y la 2ª depende de la 1ª", () => {
+    const p = send(onChar("energy", C2));
+    expect(p.rounds[0].actions.map((a) => (a.kind === "transfer" ? `${a.from}->${a.to}` : a.kind))).toEqual([`${C2}->${VAULT}`, `${VAULT}->${C1}`]);
+    expect(p.rounds[0].actions[1].requires).toEqual([p.rounds[0].actions[0].id]);
+  });
+
+  it("ya está en el personaje (inventario o equipada): no hay nada que hacer", () => {
+    expect(send(onChar("energy", C1)).rounds).toEqual([]);
+    expect(send(onChar("energy", C1)).warnings.join(" ")).toMatch(/ya está en el inventario/);
+    const eq = equippedOn("energy", C1);
+    expect(send(eq, room, [eq]).warnings.join(" ")).toMatch(/ya está equipada/);
+  });
+
+  it("sin hueco libre en la ranura: se explica y no se hace nada", () => {
+    const p = send(inVault("power"), { power: 0 });
+    expect(p.rounds).toEqual([]);
+    expect(p.warnings.join(" ")).toMatch(/hueco libre/);
+  });
+
+  it("una ranura sin dato de capacidad cuenta como sin hueco", () => {
+    expect(send(inVault("power"), {}).rounds).toEqual([]);
+  });
+
+  it("no depende de la exótica equipada", () => {
+    const exoticEquipped = equippedOn("kinetic", C1, { tier: "exotic" });
+    const exoticNew = inVault("energy", { tier: "exotic" });
+    expect(send(exoticNew, room, [exoticEquipped, exoticNew]).rounds).toHaveLength(1);
   });
 });
 
