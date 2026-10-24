@@ -25,19 +25,25 @@ function toTask(action: PlannedAction, actions: InventoryActions): QueueTask {
   return {
     actionId: action.id,
     itemInstanceId: action.itemId,
-    run:
-      action.kind === "lock"
-        ? () => actions.setLock({ itemId: action.itemId, characterId: action.characterId, locked: action.state })
-        : () => {
-            const toVault = action.to === VAULT;
-            return actions.transfer({
-              itemId: action.itemId,
-              itemHash: action.hash,
-              stackSize: action.stackSize,
-              toVault,
-              characterId: toVault ? action.from : action.to,
-            });
-          },
+    requires: action.requires,
+    run: () => {
+      switch (action.kind) {
+        case "lock":
+          return actions.setLock({ itemId: action.itemId, characterId: action.characterId, locked: action.state });
+        case "equip":
+          return actions.equip({ itemId: action.itemId, characterId: action.characterId });
+        case "transfer": {
+          const toVault = action.to === VAULT;
+          return actions.transfer({
+            itemId: action.itemId,
+            itemHash: action.hash,
+            stackSize: action.stackSize,
+            toVault,
+            characterId: toVault ? action.from : action.to,
+          });
+        }
+      }
+    },
   };
 }
 

@@ -24,7 +24,7 @@ export interface PlanResponse {
 
 export interface ResultLine extends ActionResult {
   name: string;
-  kind: "lock" | "transfer";
+  kind: "lock" | "transfer" | "equip";
   /** Texto corto de lo que se hizo, p. ej. «alijo → Titán» o «bloquear». */
   what: string;
 }

@@ -1,4 +1,4 @@
-import { setItemLockState, transferItem } from "bungie-api-ts/destiny2";
+import { equipItem, setItemLockState, transferItem } from "bungie-api-ts/destiny2";
 import { createHttpClient } from "../client";
 
 export interface TransferRequest {
@@ -19,10 +19,18 @@ export interface LockRequest {
   locked: boolean;
 }
 
+export interface EquipRequest {
+  /** itemInstanceId; ya debe estar en el personaje. */
+  itemId: string;
+  characterId: string;
+}
+
 /** Operaciones sobre el inventario. Las implementaciones lanzan excepciones; el ejecutor las tipa. */
 export interface InventoryActions {
   transfer(req: TransferRequest): Promise<void>;
   setLock(req: LockRequest): Promise<void>;
+  /** Equipa un ítem que ya está en el personaje (solo en zona social, órbita o sin conexión). */
+  equip(req: EquipRequest): Promise<void>;
 }
 
 /** Implementación real contra la API de Bungie. */
@@ -50,6 +58,14 @@ export class BungieInventoryActions implements InventoryActions {
   async setLock(req: LockRequest): Promise<void> {
     await setItemLockState(this.http, {
       state: req.locked,
+      itemId: req.itemId,
+      characterId: req.characterId,
+      membershipType: this.membershipType,
+    });
+  }
+
+  async equip(req: EquipRequest): Promise<void> {
+    await equipItem(this.http, {
       itemId: req.itemId,
       characterId: req.characterId,
       membershipType: this.membershipType,

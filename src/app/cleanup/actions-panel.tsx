@@ -34,7 +34,9 @@ interface RoundItem {
 const describe = (a: PlannedAction, label: (id: string) => string) =>
   a.kind === "lock"
     ? a.state ? "bloquear" : "desbloquear"
-    : `${a.from === VAULT ? "alijo" : label(a.from)} → ${a.to === VAULT ? "alijo" : label(a.to)}`;
+    : a.kind === "equip"
+      ? `equipar en ${label(a.characterId)}`
+      : `${a.from === VAULT ? "alijo" : label(a.from)} → ${a.to === VAULT ? "alijo" : label(a.to)}`;
 
 export function ActionsPanel({
   data,

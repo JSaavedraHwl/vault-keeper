@@ -15,6 +15,20 @@ export function planUndo(entries: readonly AuditEntry[]): ActionPlan {
     const id = `undo-${++counter}`;
     if (action.kind === "transfer") {
       actions.push({ ...action, id, from: action.to, to: action.from, reason: "Deshacer: devolver al origen." });
+    } else if (action.kind === "equip") {
+      // Volver a equipar lo que había. Si la ranura estaba vacía no hay forma de dejarla vacía: no se hace nada.
+      if (action.previous) {
+        actions.push({
+          id,
+          kind: "equip",
+          itemId: action.previous.itemId,
+          hash: action.previous.hash,
+          name: action.previous.name,
+          characterId: action.characterId,
+          previous: { itemId: action.itemId, hash: action.hash, name: action.name },
+          reason: "Deshacer: volver a equipar lo anterior.",
+        });
+      }
     } else if (action.previous !== action.state) {
       actions.push({ ...action, id, state: action.previous, previous: action.state, reason: "Deshacer: restaurar el candado." });
     }

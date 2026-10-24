@@ -12,6 +12,11 @@ interface BaseAction {
   name: string;
   /** Por qué se hace esta acción (se muestra en la confirmación). */
   reason: string;
+  /**
+   * Ids de acciones del mismo plan que deben haber salido bien para intentar esta. Si alguna falla, esta se
+   * salta (p. ej. no se intenta equipar un arma que no se pudo traer). Sin esto, la acción se intenta siempre.
+   */
+  requires?: string[];
 }
 
 export type LockAction = BaseAction & {
@@ -31,9 +36,17 @@ export type TransferAction = BaseAction & {
   stackSize: number;
 };
 
-export type PlannedAction = LockAction | TransferAction;
+export type EquipAction = BaseAction & {
+  kind: "equip";
+  /** Personaje en el que se equipa (el ítem ya debe estar en él). */
+  characterId: string;
+  /** Lo que estaba equipado en esa ranura (para poder deshacer). Ausente si estaba vacía. */
+  previous?: { itemId: string; hash: number; name: string };
+};
 
-export type PlanKind = "lock-keepers" | "move-junk" | "undo";
+export type PlannedAction = LockAction | TransferAction | EquipAction;
+
+export type PlanKind = "lock-keepers" | "move-junk" | "undo" | "equip";
 
 /**
  * Acciones cuyas rondas se encadenan solas, sin que el usuario tenga que hacer nada entre una y otra.

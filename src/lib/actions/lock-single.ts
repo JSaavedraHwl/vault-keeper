@@ -48,8 +48,9 @@ function detourActions(input: LockSingleInput): PlannedAction[] {
   const base = { itemId: input.item.id, hash: input.item.hash, name: input.item.name, stackSize: 1 };
   return [
     { ...base, id: "single-d1", kind: "transfer", from: VAULT, to: input.characterId, reason: "Paso previo: el alijo no admite candado." },
-    { ...lockAction(input, 0), id: "single-d2" },
-    { ...base, id: "single-d3", kind: "transfer", from: input.characterId, to: VAULT, reason: "Vuelve al alijo." },
+    // El candado y la vuelta dependen de que se haya podido traer; la vuelta NO depende del candado.
+    { ...lockAction(input, 0), id: "single-d2", requires: ["single-d1"] },
+    { ...base, id: "single-d3", kind: "transfer", from: input.characterId, to: VAULT, requires: ["single-d1"], reason: "Vuelve al alijo." },
   ];
 }
 

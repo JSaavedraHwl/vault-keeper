@@ -1,11 +1,15 @@
 import { BungieError, MaintenanceError, SessionExpiredError } from "../errors";
-import type { InventoryActions, LockRequest, TransferRequest } from "./api";
+import type { EquipRequest, InventoryActions, LockRequest, TransferRequest } from "./api";
 
 export interface MockItem {
   /** "vault" o un characterId */
   location: string;
   locked: boolean;
   equipped?: boolean;
+  /** Ranura de equipo («kinetic», «energy»...): solo hace falta para simular equipar. */
+  slot?: string;
+  /** Exótica: para simular la regla de «una sola exótica de arma equipada». */
+  exotic?: boolean;
 }
 
 export interface MockOptions {
@@ -30,8 +34,8 @@ export class MockInventoryActions implements InventoryActions {
     this.failures = structuredClone(options.failures ?? {});
   }
 
-  /** Una clave `lock:ID` o `transfer:ID` afecta solo a esa operación; `ID` a todas. */
-  private maybeFail(op: "lock" | "transfer", itemId: string) {
+  /** Una clave `lock:ID`, `transfer:ID` o `equip:ID` afecta solo a esa operación; `ID` a todas. */
+  private maybeFail(op: "lock" | "transfer" | "equip", itemId: string) {
     const failure = this.failures[`${op}:${itemId}`] ?? this.failures[itemId];
     if (!failure || (failure.times ?? Infinity) <= 0) return;
     if (failure.times !== undefined) failure.times -= 1;
@@ -71,5 +75,23 @@ export class MockInventoryActions implements InventoryActions {
       throw new BungieError("No se puede bloquear en el alijo", 1623, 200);
     }
     item.locked = req.locked;
+  }
+
+  async equip(req: EquipRequest): Promise<void> {
+    this.calls.push(`equip:${req.itemId}:${req.characterId}`);
+    this.maybeFail("equip", req.itemId);
+    const item = this.items[req.itemId];
+    if (!item) throw new BungieError("Ítem no encontrado", 1623, 200);
+    // Como la API real: el ítem debe estar ya en el personaje.
+    if (item.location !== req.characterId) throw new BungieError("No está en el personaje", 1623, 200);
+
+    const sameCharacter = Object.entries(this.items).filter(([, i]) => i.location === req.characterId && i.equipped);
+    // Una sola exótica de arma equipada (la de la misma ranura se reemplaza, no cuenta).
+    if (item.exotic && sameCharacter.some(([, i]) => i.exotic && i.slot !== item.slot)) {
+      throw new BungieError("Ya hay una exótica equipada", 1641, 200);
+    }
+    // Equipar desequipa lo que había en esa ranura.
+    for (const [, other] of sameCharacter) if (other.slot === item.slot) other.equipped = false;
+    item.equipped = true;
   }
 }

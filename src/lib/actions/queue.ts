@@ -6,6 +6,8 @@ export interface QueueTask {
   actionId: string;
   itemInstanceId: string;
   run: () => Promise<void>;
+  /** actionIds que deben haber salido bien; si alguno falló, la tarea se salta sin llamar a la API. */
+  requires?: readonly string[];
 }
 
 export type QueueStop =
@@ -57,6 +59,22 @@ export async function runQueue(tasks: readonly QueueTask[], options: QueueOption
           ? { kind: "unknown", message: "Cancelado antes de ejecutarse." }
           : { kind: stopped.error.kind, code: stopped.error.code, message: "No se ejecutó: la cola se detuvo antes." };
       const result = notSent(task, error);
+      results.push(result);
+      options.onResult?.(result, results.length, tasks.length);
+      continue;
+    }
+
+    // Un paso que depende de otro que falló no se intenta: el error útil es el del paso anterior.
+    const failedDependency = task.requires
+      ?.map((id) => results.find((r) => r.actionId === id))
+      .find((r) => r && !r.ok);
+    if (failedDependency) {
+      const cause = failedDependency.error;
+      const result = notSent(task, {
+        kind: cause?.kind ?? "unknown",
+        code: cause?.code,
+        message: `No se intentó porque falló el paso anterior${cause ? `: ${cause.message}` : "."}`,
+      });
       results.push(result);
       options.onResult?.(result, results.length, tasks.length);
       continue;

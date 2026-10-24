@@ -15,6 +15,7 @@ const KINDS: PlanKind[] = ["lock-keepers", "move-junk", "undo"];
 function describe(action: PlannedAction, characters: Map<string, string>): string {
   const place = (p: string) => (p === VAULT ? "alijo" : (characters.get(p) ?? "personaje"));
   if (action.kind === "lock") return action.state ? "bloquear" : "desbloquear";
+  if (action.kind === "equip") return `equipar en ${characters.get(action.characterId) ?? "personaje"}`;
   return `${place(action.from)} → ${place(action.to)}`;
 }
 

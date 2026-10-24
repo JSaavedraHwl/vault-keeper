@@ -122,6 +122,60 @@ describe("cola de acciones", () => {
     expect(progress).toEqual([[1, 2], [2, 2]]);
   });
 
+  describe("dependencias entre pasos (requires)", () => {
+    const dep = (task: QueueTask, requires: string[]): QueueTask => ({ ...task, requires });
+
+    it("un paso se salta si falló uno del que depende, y explica la causa del primero", async () => {
+      const log: string[] = [];
+      const { results, stopped } = await runQueue(
+        [failing("a", 1642, Infinity, log), dep(ok("b", log), ["a"])],
+        opts(),
+      );
+      expect(log).toEqual(["a"]); // «b» ni se llama
+      expect(results[1]).toMatchObject({ ok: false, skipped: true, error: { kind: "no_room", code: 1642 } });
+      expect(results[1].error?.message).toMatch(/No se intentó porque falló el paso anterior/);
+      expect(stopped).toBeNull(); // no es un error fatal: la cola sigue
+    });
+
+    it("si el paso del que depende sale bien, se ejecuta con normalidad", async () => {
+      const log: string[] = [];
+      await runQueue([ok("a", log), dep(ok("b", log), ["a"])], opts());
+      expect(log).toEqual(["a", "b"]);
+    });
+
+    it("sin `requires`, un paso se intenta aunque el anterior haya fallado (p. ej. devolver el arma al alijo)", async () => {
+      const log: string[] = [];
+      await runQueue([failing("lock", 1623, Infinity, log), ok("back", log)], opts());
+      expect(log).toEqual(["lock", "back"]);
+    });
+
+    it("depender solo del primer paso: si el segundo falla, el tercero igualmente corre", async () => {
+      const log: string[] = [];
+      const { results } = await runQueue(
+        [ok("move", log), dep(failing("lock", 1623, Infinity, log), ["move"]), dep(ok("back", log), ["move"])],
+        opts(),
+      );
+      expect(log).toEqual(["move", "lock", "back"]);
+      expect(results.map((r) => r.ok)).toEqual([true, false, true]);
+    });
+
+    it("la dependencia se propaga en cadena", async () => {
+      const log: string[] = [];
+      const { results } = await runQueue(
+        [failing("a", 1623, Infinity, log), dep(ok("b", log), ["a"]), dep(ok("c", log), ["b"])],
+        opts(),
+      );
+      expect(log).toEqual(["a"]);
+      expect(results.map((r) => !!r.skipped)).toEqual([false, true, true]);
+    });
+
+    it("una dependencia desconocida no bloquea nada", async () => {
+      const log: string[] = [];
+      await runQueue([dep(ok("a", log), ["no-existe"])], opts());
+      expect(log).toEqual(["a"]);
+    });
+  });
+
   it("cola vacía", async () => {
     expect(await runQueue([], opts())).toEqual({ results: [], stopped: null });
   });

@@ -8,6 +8,7 @@ export type ActionErrorKind =
   | "equipped" // el ítem está equipado
   | "locked" // el ítem tiene candado
   | "not_transferable"
+  | "cannot_equip" // el juego no deja equiparlo (exótica ya equipada, nivel, desbloqueo...)
   | "maintenance"
   | "session" // sesión caducada o token inválido
   | "scope" // la app no tiene el permiso de mover/equipar
@@ -46,6 +47,12 @@ const BY_CODE: Record<number, [ActionErrorKind, string]> = {
   1674: ["locked", "El ítem tiene candado."],
   1660: ["not_transferable", "Este ítem no se puede transferir."],
   1673: ["not_transferable", "Este ítem no se puede transferir (tiene efectos secundarios)."],
+  1641: ["cannot_equip", "El juego no permite equiparla: ya llevas otra exótica equipada."],
+  1648: ["cannot_equip", "El juego no permite equiparla: ya llevas otra exótica equipada."],
+  1640: ["cannot_equip", "Este ítem no se puede equipar."],
+  1638: ["cannot_equip", "El personaje no cumple el nivel necesario para equiparla."],
+  1639: ["cannot_equip", "Aún no tienes desbloqueado lo necesario para equiparla."],
+  1655: ["in_activity", "Este ítem solo se puede equipar dentro del juego."],
   1671: ["in_activity", "Bungie no permite esta acción mientras estás en una actividad. Vuelve a órbita o a una zona social."],
   1634: ["in_activity", "Esta acción solo se puede hacer en una zona social, en órbita o sin conexión."],
   1635: ["in_activity", "El personaje no está conectado."],

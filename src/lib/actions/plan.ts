@@ -100,10 +100,15 @@ export function planLockKeepers(
       skipped.push({ itemId: item.id, name: item.name, reason: `Sin hueco libre en el personaje para ${SLOT_LABELS[item.slot]}.` });
       return null;
     }
+    const out = id();
+    const lock = id();
+    const back = id();
+    // Bloquear y devolver dependen de que se haya podido traer. Devolver NO depende del candado:
+    // si el candado falla, el arma debe volver al alijo igualmente.
     return [
-      { ...base, id: id(), kind: "transfer", from: VAULT, to: input.characterId, stackSize: item.quantity, reason: "Paso previo para poder bloquearlo." },
-      { ...base, id: id(), kind: "lock", state: true, previous: false, characterId: input.characterId, reason },
-      { ...base, id: id(), kind: "transfer", from: input.characterId, to: VAULT, stackSize: item.quantity, reason: "Vuelve al alijo." },
+      { ...base, id: out, kind: "transfer", from: VAULT, to: input.characterId, stackSize: item.quantity, reason: "Paso previo para poder bloquearlo." },
+      { ...base, id: lock, requires: [out], kind: "lock", state: true, previous: false, characterId: input.characterId, reason },
+      { ...base, id: back, requires: [out], kind: "transfer", from: input.characterId, to: VAULT, stackSize: item.quantity, reason: "Vuelve al alijo." },
     ];
   };
 
