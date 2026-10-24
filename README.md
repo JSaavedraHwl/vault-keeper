@@ -72,19 +72,79 @@ La primera carga descarga el manifest (≈30–40 s). Se cachea en `.cache/manif
 vuelve a descargar cuando Bungie publica una versión nueva (se comprueba como máximo una vez por hora).
 Para forzar la descarga, borra la carpeta `.cache/`.
 
+## 5. Limpieza del alijo (`/cleanup`)
+
+Clasifica cada arma y armadura del alijo con **reglas** (sin IA) en `keep`, `archive`, `junk` o `needs_review`,
+siempre con una razón de una línea. Solo sugiere: **nunca desmantela nada** (la API de Bungie no lo permite);
+eso lo haces tú en el juego.
+
+- **Reglas** (`src/lib/classify/rules`): protegido (candado/equipado/«siempre conservar»), excepciones, obsoleto,
+  rareza baja, armadura, copias sobrantes de un arma, tipo de arma que no usas y mejor copia. Su orden de prioridad
+  y los umbrales están en `src/lib/classify/classify.config.ts`.
+- **Armaduras:** si la pieza informa su nivel (`gearTier`), manda el nivel (el total de stats depende de él). Sin
+  nivel, se juzga por el total.
+- **Perfil de uso** (`/cleanup/profile`): clases que juegas, PvE / Grandmaster / PvP, stats prioritarias, armas
+  preferidas y perks que valoras. Se guarda en `profile/usage-profile.json`.
+- **Correcciones manuales** («siempre conservar» y cambios de veredicto) en `data/overrides.json`; tienen prioridad
+  sobre las reglas. Un ítem con candado, equipado o «siempre conservar» nunca sale como basura.
+
+## 6. Acciones sobre el inventario
+
+Desde `/cleanup`, panel **Acciones**. Todo requiere el permiso «Mover o equipar objetos de Destiny» y un clic tuyo:
+
+1. **Bloquear los que conservo** (`keep` y `archive`).
+2. **Mover basura a [personaje]**, por rondas del tamaño del espacio libre del personaje (10 por ranura, contando lo
+   equipado) y de un tope de 50 ítems por ejecución. Entre rondas desmantelas en el juego lo movido.
+3. **Deshacer última ejecución** (devuelve al alijo lo movido y restaura candados; lo desmantelado no se recupera).
+
+Cada acción pasa por: vista previa del plan → **Simular** (no cambia nada) o **Ejecutar** → progreso en vivo con
+**Cancelar** → reporte. Puedes limitar la ejecución a 1 o 2 ítems para probar. Seguridad:
+
+- El servidor **no ejecuta el plan del navegador**: lo recalcula con datos frescos y solo toma lo que confirmaste y
+  sigue siendo válido (basura, sin candado, sin equipar, en el alijo).
+- Una sola ejecución a la vez; 250 ms entre llamadas; reintentos ante límites de peticiones; se detiene sola si estás
+  en una actividad, hay mantenimiento o caduca la sesión.
+- Cada acción queda en `data/audit-log.jsonl`. Lo aprendido de la API (p. ej. que el alijo admite candado) en
+  `data/capabilities.json`.
+- En **Alijo**, cada ítem tiene un botón de candado para probar con uno solo.
+
+## 7. Modos de prueba (no tocan tu cuenta)
+
+| Modo | Cómo | Qué hace |
+| --- | --- | --- |
+| Simulación completa | `https://localhost:3000/cleanup?sim=1` | Alijo y personajes de ejemplo en memoria (con «simular desmantelado»); no necesita sesión. |
+| Mock de acciones | `ACTIONS_MODE=mock` | Lee tu cuenta real, pero mover y bloquear nunca llaman a Bungie. |
+| Datos de ejemplo en el análisis | `CLASSIFY_SIMULATION=1` | `/cleanup` usa los datos de `fixtures/`. |
+
+## 8. Tests
+
+```
+npm test        # Vitest: reglas, perfil, planificador, cola, ejecución, deshacer y panel
+npm run lint
+npx tsc --noEmit
+```
+
 ## Estructura
 
 ```
 src/
+├─ components/             navegación
 ├─ lib/
 │  ├─ env.ts               variables de entorno (solo servidor)
 │  ├─ bungie/              cliente HTTP (X-API-Key, reintentos), OAuth, sesión, perfil
+│  │  └─ actions/          transferir y bloquear (real y mock), errores tipados
 │  ├─ manifest/            descarga y caché en disco del manifest (es)
-│  └─ inventory/           normalización a NormalizedItem y lectura del alijo
+│  ├─ inventory/           NormalizedItem, lectura del alijo y de los personajes
+│  ├─ classify/            reglas, perfil de uso y correcciones manuales
+│  └─ actions/             planificador, cola, ejecución, auditoría y deshacer
 └─ app/
    ├─ api/auth/            login, callback, refresh, logout
-   ├─ api/dev/manifest/    diagnóstico del manifest (solo fuera de producción)
-   └─ vault/               página del alijo con filtros y búsqueda
+   ├─ api/classify/        análisis del alijo (progreso por etapas)
+   ├─ api/actions/         plan, ejecución (streaming) y simulación
+   ├─ api/dev/             diagnósticos (solo fuera de producción)
+   ├─ vault/               alijo con filtros, búsqueda y candado por ítem
+   └─ cleanup/             limpieza, acciones y perfil de uso
+fixtures/                  alijo de ejemplo para simulación y tests
 ```
 
 ## Seguridad
