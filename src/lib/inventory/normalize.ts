@@ -90,6 +90,7 @@ export function normalizeItem(
     slot: (def.bucketHash !== undefined && SLOT_BY_BUCKET[def.bucketHash]) || "other",
     tier: TIERS[def.tierType] ?? "common",
     power: instance?.primaryStat?.value ?? null,
+    ...(instance?.gearTier !== undefined && { gearTier: instance.gearTier }),
     classType: kind === "armor" ? (CLASSES[def.classType] ?? null) : null,
     perks,
     stats,

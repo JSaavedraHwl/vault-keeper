@@ -24,6 +24,19 @@ export async function GET(req: NextRequest) {
       const key = item.armorTotal === undefined ? "sin stats" : String(item.armorTotal);
       armorTotals[key] = (armorTotals[key] ?? 0) + 1;
     }
+    // Cruce nivel de la pieza × total de stats (¿explica el nivel los dos grupos de totales?).
+    const armorByGearTier: Record<string, Record<string, number>> = {};
+    for (const item of items.filter((i) => i.kind === "armor")) {
+      const tier = item.gearTier === undefined ? "sin dato" : String(item.gearTier);
+      const total = item.armorTotal === undefined ? "sin stats" : String(item.armorTotal);
+      const row = (armorByGearTier[tier] ??= {});
+      row[total] = (row[total] ?? 0) + 1;
+    }
+    const weaponGearTiers: Record<string, number> = {};
+    for (const item of items.filter((i) => i.kind === "weapon")) {
+      const tier = item.gearTier === undefined ? "sin dato" : String(item.gearTier);
+      weaponGearTiers[tier] = (weaponGearTiers[tier] ?? 0) + 1;
+    }
     const ruleHits: Record<string, number> = {};
     for (const r of report.results) {
       const key = `${r.ruleId ?? r.source} -> ${r.verdict}`;
@@ -35,6 +48,13 @@ export async function GET(req: NextRequest) {
       profileVersion: report.profileVersion,
       summary: report.summary,
       ruleHits,
+      armorByGearTier: Object.fromEntries(
+        Object.entries(armorByGearTier).map(([tier, row]) => [
+          tier,
+          Object.fromEntries(Object.entries(row).sort(([a], [b]) => Number(a) - Number(b))),
+        ]),
+      ),
+      weaponGearTiers,
       armorTotals: Object.fromEntries(
         Object.entries(armorTotals).sort(([a], [b]) => Number(a) - Number(b)),
       ),

@@ -16,6 +16,8 @@ export interface NormalizedItem {
   tier: ItemTier;
   /** Nivel de poder; null en ítems sin poder. */
   power: number | null;
+  /** Nivel de la pieza (`gearTier` de Bungie), si la API lo informa. */
+  gearTier?: number;
   /** Clase a la que pertenece (armaduras); null si sirve a todas. */
   classType: "titan" | "hunter" | "warlock" | null;
   /** Perks activos (los insertados en cada columna). */
