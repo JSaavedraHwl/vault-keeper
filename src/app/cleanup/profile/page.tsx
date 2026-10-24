@@ -32,11 +32,8 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-5xl p-4">
-      <header className="mb-4 flex items-center justify-between">
+      <header className="mb-4">
         <h1 className="text-2xl font-bold">Perfil de uso</h1>
-        <a href="/vault" className="text-sm text-blue-400 hover:underline">
-          ← Volver al alijo
-        </a>
       </header>
       {warning && (
         <p className="mb-4 rounded border border-yellow-500 bg-yellow-950/40 p-3 text-sm text-yellow-200">

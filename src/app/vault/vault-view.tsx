@@ -74,12 +74,6 @@ export function VaultView({ items }: { items: NormalizedItem[] }) {
             </option>
           ))}
         </select>
-        <a href="/cleanup" className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500">
-          Limpieza
-        </a>
-        <form action="/api/auth/logout" method="post">
-          <button className="rounded bg-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-600">Cerrar sesión</button>
-        </form>
       </header>
 
       <div className="mb-4 flex gap-2">
