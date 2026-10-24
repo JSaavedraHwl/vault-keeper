@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "classes": {
+    "titan": { "enabled": true, "activities": ["pve"], "playstyle": "", "armorStatPriority": [] },
+    "hunter": { "enabled": true, "activities": ["pve"], "playstyle": "", "armorStatPriority": [] },
+    "warlock": { "enabled": true, "activities": ["pve"], "playstyle": "", "armorStatPriority": [] }
+  },
+  "weaponPreferences": {},
+  "favoredPerks": []
+}

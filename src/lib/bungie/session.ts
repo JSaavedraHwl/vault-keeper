@@ -51,6 +51,12 @@ export async function getAccessToken(): Promise<{ accessToken: string; membershi
   return { accessToken: s.accessToken, membershipId: s.membershipId };
 }
 
+/** ¿Hay una sesión utilizable (aunque el access token necesite refrescarse)? */
+export async function hasValidSession(): Promise<boolean> {
+  const s = await getSession();
+  return Boolean(s.accessToken && s.refreshToken && (s.refreshExpiresAt ?? 0) > Date.now());
+}
+
 /** Solo desde Route Handlers / Server Actions (escribe cookies). */
 export async function refreshSession(): Promise<void> {
   const s = await getSession();
