@@ -86,8 +86,9 @@ export class MockInventoryActions implements InventoryActions {
     if (item.location !== req.characterId) throw new BungieError("No está en el personaje", 1623, 200);
 
     const sameCharacter = Object.entries(this.items).filter(([, i]) => i.location === req.characterId && i.equipped);
-    // Una sola exótica de arma equipada (la de la misma ranura se reemplaza, no cuenta).
-    if (item.exotic && sameCharacter.some(([, i]) => i.exotic && i.slot !== item.slot)) {
+    // Una sola exótica de arma y una sola de armadura equipadas (la de la misma ranura se reemplaza, no cuenta).
+    const group = (slot?: string) => (slot && ["kinetic", "energy", "power"].includes(slot) ? "weapon" : "armor");
+    if (item.exotic && sameCharacter.some(([, i]) => i.exotic && i.slot !== item.slot && group(i.slot) === group(item.slot))) {
       throw new BungieError("Ya hay una exótica equipada", 1641, 200);
     }
     // Equipar desequipa lo que había en esa ranura.
