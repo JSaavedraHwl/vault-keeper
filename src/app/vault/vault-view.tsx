@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { ItemTier, NormalizedItem } from "@/lib/inventory/types";
+import { setItemLockAction } from "./actions";
 
 const TIER_STYLES: Record<ItemTier, string> = {
   common: "border-zinc-500",
@@ -111,6 +112,55 @@ export function VaultView({ items }: { items: NormalizedItem[] }) {
   );
 }
 
+/** Candado de un solo ítem: sirve también para probar el bloqueo antes de usarlo en masa. */
+function LockButton({ item }: { item: NormalizedItem }) {
+  const [locked, setLocked] = useState(item.locked);
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function toggle() {
+    const next = !locked;
+    setMessage(null);
+    startTransition(async () => {
+      const result = await setItemLockAction({ id: item.id, hash: item.hash, name: item.name }, next);
+      if (result.ok) {
+        setLocked(result.locked);
+        setMessage({
+          ok: true,
+          text: result.via === "detour" ? "Hecho (se movió al personaje y volvió)." : "Hecho.",
+        });
+      } else {
+        setMessage({ ok: false, text: result.error.message });
+      }
+    });
+  }
+
+  return (
+    <span className="relative">
+      <button
+        onClick={toggle}
+        disabled={pending}
+        title={locked ? "Quitar candado" : "Poner candado"}
+        aria-label={`${locked ? "Quitar candado a" : "Poner candado a"} ${item.name}`}
+        aria-pressed={locked}
+        className={`rounded px-1.5 py-0.5 text-sm hover:bg-zinc-700 disabled:opacity-50 ${locked ? "text-yellow-300" : "text-zinc-500"}`}
+      >
+        {pending ? "…" : locked ? "🔒" : "🔓"}
+      </button>
+      {message && (
+        <span
+          role="status"
+          className={`absolute right-0 top-full z-10 mt-1 w-56 rounded border p-2 text-xs ${
+            message.ok ? "border-green-600 bg-zinc-950 text-green-300" : "border-red-500 bg-zinc-950 text-red-300"
+          }`}
+        >
+          {message.text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function ItemCard({ item }: { item: NormalizedItem }) {
   return (
     <li className={`flex gap-3 rounded border-l-4 bg-zinc-900 p-3 ${TIER_STYLES[item.tier]}`}>
@@ -126,10 +176,14 @@ function ItemCard({ item }: { item: NormalizedItem }) {
             {item.name}
             {item.quantity > 1 && <span className="text-zinc-400"> ×{item.quantity}</span>}
           </h2>
-          {item.power !== null && <span className="font-mono text-yellow-300">{item.power}</span>}
+          <span className="flex shrink-0 items-center gap-2">
+            {item.power !== null && <span className="font-mono text-yellow-300">{item.power}</span>}
+            {item.id !== String(item.hash) && <LockButton item={item} />}
+          </span>
         </div>
         <p className="text-xs text-zinc-400">
           {item.type} · {TIER_LABELS[item.tier]}
+          {item.gearTier !== undefined && item.gearTier > 0 && ` · nivel ${item.gearTier}`}
           {item.classType && ` · ${item.classType}`}
         </p>
 

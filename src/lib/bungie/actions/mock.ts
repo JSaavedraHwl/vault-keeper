@@ -30,8 +30,9 @@ export class MockInventoryActions implements InventoryActions {
     this.failures = structuredClone(options.failures ?? {});
   }
 
-  private maybeFail(itemId: string) {
-    const failure = this.failures[itemId];
+  /** Una clave `lock:ID` o `transfer:ID` afecta solo a esa operación; `ID` a todas. */
+  private maybeFail(op: "lock" | "transfer", itemId: string) {
+    const failure = this.failures[`${op}:${itemId}`] ?? this.failures[itemId];
     if (!failure || (failure.times ?? Infinity) <= 0) return;
     if (failure.times !== undefined) failure.times -= 1;
     if (failure.code === "maintenance") throw new MaintenanceError();
@@ -45,7 +46,7 @@ export class MockInventoryActions implements InventoryActions {
 
   async transfer(req: TransferRequest): Promise<void> {
     this.calls.push(`transfer:${req.itemId}:${req.toVault ? "->vault" : "->" + req.characterId}`);
-    this.maybeFail(req.itemId);
+    this.maybeFail("transfer", req.itemId);
     const item = this.items[req.itemId];
     if (!item) throw new BungieError("Ítem no encontrado", 1623, 200);
     if (item.equipped) throw new BungieError("Equipado", 1656, 200);
@@ -63,7 +64,7 @@ export class MockInventoryActions implements InventoryActions {
 
   async setLock(req: LockRequest): Promise<void> {
     this.calls.push(`lock:${req.itemId}:${req.locked}`);
-    this.maybeFail(req.itemId);
+    this.maybeFail("lock", req.itemId);
     const item = this.items[req.itemId];
     if (!item) throw new BungieError("Ítem no encontrado", 1623, 200);
     if (item.location === "vault" && this.options.vaultLockSupported === false) {
