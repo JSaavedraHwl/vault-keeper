@@ -11,6 +11,7 @@ import {
   type SlimItemDef,
   type SlimNamedDef,
   type SlimSocketTypeDef,
+  type SlimArtifactDef,
   type SlimStatDef,
 } from "./types";
 
@@ -21,6 +22,9 @@ const TABLES = [
   "DestinySocketCategoryDefinition",
   "DestinySocketTypeDefinition",
   "DestinyInventoryBucketDefinition",
+  "DestinyBreakerTypeDefinition",
+  "DestinyDamageTypeDefinition",
+  "DestinyArtifactDefinition",
 ] as const;
 
 export async function fetchRemoteVersion(): Promise<string> {
@@ -48,6 +52,7 @@ function slimItem(d: DestinyInventoryItemDefinition): SlimItemDef | null {
       categoryHash: c.socketCategoryHash,
       socketIndexes: c.socketIndexes,
     })),
+    ...(d.breakerType ? { breakerType: d.breakerType } : {}),
   };
 }
 
@@ -102,6 +107,24 @@ export async function downloadManifest(): Promise<Manifest> {
     };
   }
 
+  // Tipos de campeón y elementos, indexados por el valor de su enum (es lo que trae la instancia del ítem).
+  const breakers: Manifest["breakers"] = {};
+  for (const def of Object.values(tables.DestinyBreakerTypeDefinition)) {
+    breakers[def.enumValue] = { hash: def.hash, name: def.displayProperties?.name ?? "" };
+  }
+  const damageTypes: Manifest["damageTypes"] = {};
+  for (const def of Object.values(tables.DestinyDamageTypeDefinition)) {
+    damageTypes[def.enumValue] = { hash: def.hash, name: def.displayProperties?.name ?? "" };
+  }
+
+  // Solo hay un artefacto vigente por temporada.
+  const artifactDef = Object.values(tables.DestinyArtifactDefinition)[0];
+  const artifact: SlimArtifactDef | undefined = artifactDef && {
+    hash: artifactDef.hash,
+    name: artifactDef.displayProperties?.name ?? "",
+    perkHashes: artifactDef.tiers.flatMap((t) => t.items.map((i) => i.itemHash)),
+  };
+
   return {
     schema: MANIFEST_SCHEMA,
     version: destinyManifest.version,
@@ -112,5 +135,8 @@ export async function downloadManifest(): Promise<Manifest> {
     socketCategories: named(tables.DestinySocketCategoryDefinition),
     socketTypes,
     buckets,
+    breakers,
+    damageTypes,
+    ...(artifact && { artifact }),
   };
 }

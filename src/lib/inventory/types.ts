@@ -18,6 +18,13 @@ export interface NormalizedItem {
   power: number | null;
   /** Nivel de la pieza (`gearTier` de Bungie), si la API lo informa. */
   gearTier?: number;
+  /** Elemento del arma («Solar», «Vacío»...), tal como lo llama el juego. */
+  element?: string;
+  /**
+   * Capacidad PROPIA del arma contra campeones (de serie, por un rasgo que lleva o según la instancia).
+   * No incluye las ventajas de artefacto, que dependen del personaje (ver `championStatus`).
+   */
+  champions?: ChampionCap[];
   /** Clase a la que pertenece (armaduras); null si sirve a todas. */
   classType: "titan" | "hunter" | "warlock" | null;
   /** Perks activos (los insertados en cada columna). */
@@ -35,6 +42,8 @@ export interface NormalizedItem {
   /** Solo si location es "character". */
   characterId?: string;
 }
+
+import type { ChampionCap } from "./champions";
 
 /** Un personaje de la cuenta y el espacio libre que tiene por ranura. */
 export interface CharacterInfo {

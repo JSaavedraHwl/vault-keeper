@@ -1,5 +1,6 @@
 import type { DestinyItemComponent, DestinyProfileResponse } from "bungie-api-ts/destiny2";
 import type { Manifest } from "../manifest";
+import { detectChampions } from "./champions";
 import {
   ARMOR_STAT_HASHES,
   HIDDEN_STAT_HASHES,
@@ -80,6 +81,24 @@ export function normalizeItem(
     }
   }
 
+  // Armas: elemento y capacidad propia contra campeones (la del artefacto depende del personaje).
+  let element: string | undefined;
+  let champions: NormalizedItem["champions"];
+  if (kind === "weapon") {
+    element = instance?.damageType ? manifest.damageTypes?.[instance.damageType]?.name : undefined;
+    const caps = detectChampions({
+      itemBreaker: def.breakerType,
+      categoryHashes: def.categoryHashes,
+      instanceBreaker: instance?.breakerType,
+      // Todos los rasgos que lleva puestos, también el intrínseco (que no es una columna de perks).
+      plugDescriptions: (sockets ?? [])
+        .filter((s) => s.plugHash && s.isEnabled !== false)
+        .map((s) => manifest.items[s.plugHash!]?.description),
+      breakerNames: manifest.breakers ?? {},
+    });
+    if (caps.length > 0) champions = caps;
+  }
+
   return {
     id: instanceId ?? String(item.itemHash),
     hash: item.itemHash,
@@ -91,6 +110,8 @@ export function normalizeItem(
     tier: TIERS[def.tierType] ?? "common",
     power: instance?.primaryStat?.value ?? null,
     ...(instance?.gearTier !== undefined && { gearTier: instance.gearTier }),
+    ...(element && { element }),
+    ...(champions && { champions }),
     classType: kind === "armor" ? (CLASSES[def.classType] ?? null) : null,
     perks,
     stats,

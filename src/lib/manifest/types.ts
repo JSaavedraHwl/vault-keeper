@@ -15,6 +15,8 @@ export interface SlimItemDef {
   categoryHashes: number[];
   plugCategory?: string; // plug.plugCategoryIdentifier
   socketCategories: { categoryHash: number; socketIndexes: number[] }[];
+  /** DestinyBreakerType propio del ítem (1 barrera, 2 sobrecarga, 3 imparable); ausente si no tiene. */
+  breakerType?: number;
 }
 
 export interface SlimStatDef {
@@ -36,13 +38,20 @@ export interface SlimSocketTypeDef {
 }
 
 /** Sube cuando cambia la forma de `Manifest`: una caché con otro esquema se descarga de nuevo. */
-export const MANIFEST_SCHEMA = 2;
+export const MANIFEST_SCHEMA = 3;
 
 export interface SlimBucketDef {
   hash: number;
   name: string;
   /** Cuántos ítems caben (incluido el equipado, en los buckets de equipo). */
   itemCount: number;
+}
+
+/** El artefacto de la temporada actual y todas sus ventajas (hash de ítem). */
+export interface SlimArtifactDef {
+  hash: number;
+  name: string;
+  perkHashes: number[];
 }
 
 export interface Manifest {
@@ -55,4 +64,9 @@ export interface Manifest {
   socketCategories: Record<number, SlimNamedDef>;
   socketTypes: Record<number, SlimSocketTypeDef>;
   buckets: Record<number, SlimBucketDef>;
+  /** Tipos de campeón, por valor del enum DestinyBreakerType: sus nombres aparecen entre [corchetes] en los textos. */
+  breakers: Record<number, SlimNamedDef>;
+  /** Elementos, por valor del enum DamageType. */
+  damageTypes: Record<number, SlimNamedDef>;
+  artifact?: SlimArtifactDef;
 }
