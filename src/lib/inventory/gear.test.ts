@@ -106,6 +106,27 @@ describe("buildGearData", () => {
   });
 });
 
+describe("buildGearData con armaduras (para los loadouts)", () => {
+  const withArmor = buildGearData(profile, manifest, { armor: true });
+  const ids = (d: typeof withArmor) => d.items.map((i) => i.id).sort();
+
+  it("por defecto solo armas; con armor:true también las armaduras", () => {
+    expect(ids(buildGearData(profile, manifest))).toEqual(["e1", "i1", "v1"]);
+    expect(ids(withArmor)).toEqual(["e1", "e2", "h1", "i1", "v1", "v2"]);
+  });
+
+  it("las armaduras llevan su ranura y su ubicación", () => {
+    const byId = Object.fromEntries(withArmor.items.map((i) => [i.id, i]));
+    expect(byId.v2).toMatchObject({ kind: "armor", slot: "helmet", location: "vault" });
+    expect(byId.h1).toMatchObject({ kind: "armor", location: "character", characterId: "c1", equipped: false });
+    expect(byId.e2).toMatchObject({ kind: "armor", location: "character", characterId: "c1", equipped: true });
+  });
+
+  it("el correo del personaje sigue sin entrar", () => {
+    expect(withArmor.items.some((i) => i.id === "mail")).toBe(false);
+  });
+});
+
 describe("weaponTypesOf", () => {
   it("solo tipos de armas legendarias o exóticas de las tres ranuras, ordenados", () => {
     expect(weaponTypesOf(manifest)).toEqual(["Arco de combate", "Fusil de pulsos", "Lanzacohetes"]);

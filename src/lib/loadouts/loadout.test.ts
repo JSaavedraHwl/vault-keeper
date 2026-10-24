@@ -6,6 +6,7 @@ import { MockInventoryActions, type MockItem } from "../bungie/actions/mock";
 import { makeItem } from "../classify/testing";
 import { lastRun } from "../actions/audit";
 import { executeRounds } from "../actions/execute";
+import { buildLoadoutPlan, LoadoutError } from "../actions/loadout-service";
 import { planEquipLoadout } from "../actions/plan-loadout";
 import { planUndo } from "../actions/undo";
 import { VAULT, type PlannedAction } from "../actions/types";
@@ -268,6 +269,30 @@ describe("plan para equipar un loadout", () => {
     const w = piece("kinetic", "vault");
     const plan = planEquipLoadout({ loadout: loadoutOf({ kinetic: w }), character: character(), items: [w] });
     expect(JSON.parse(JSON.stringify(plan))).toEqual(plan);
+  });
+});
+
+describe("buildLoadoutPlan (con datos recién leídos)", () => {
+  const w = piece("kinetic", "vault");
+  const gear = { items: [w], characters: [{ ...character(), activeArtifactPerks: [] }] };
+
+  it("loadout o personaje inexistentes: error claro, nunca un plan", () => {
+    expect(() => buildLoadoutPlan(gear, undefined, ME, false)).toThrow(LoadoutError);
+    expect(() => buildLoadoutPlan(gear, undefined, ME, false)).toThrow(/ya no existe/);
+    expect(() => buildLoadoutPlan(gear, loadoutOf({ kinetic: w }), "nadie", false)).toThrow(/personaje/);
+  });
+
+  it("con datos válidos, un plan con la simulación indicada", () => {
+    const plan = buildLoadoutPlan(gear, loadoutOf({ kinetic: w }), ME, true);
+    expect(plan).toMatchObject({ kind: "equip", dryRun: true });
+    expect(plan.rounds).toHaveLength(1);
+  });
+
+  it("una pieza que desapareció desde que se guardó el loadout se omite en vez de fallar", () => {
+    const gone = piece("energy", "vault");
+    const plan = buildLoadoutPlan(gear, loadoutOf({ kinetic: w, energy: gone }), ME, false);
+    expect(plan.rounds[0].actions.every((a) => a.name === w.name)).toBe(true);
+    expect(plan.skipped).toHaveLength(1);
   });
 });
 
