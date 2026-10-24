@@ -58,7 +58,7 @@ export function buildGearData(profile: DestinyProfileResponse, manifest: Manifes
     }
   }
   for (const [characterId, eq] of Object.entries(profile.characterEquipment?.data ?? {})) {
-    for (const c of eq.items.filter((i) => isWeaponBucket(i.bucketHash))) {
+    for (const c of eq.items) {
       add(c, { location: "character", characterId, equipped: true });
     }
   }

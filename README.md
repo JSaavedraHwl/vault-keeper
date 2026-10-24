@@ -111,7 +111,24 @@ Cada acción pasa por: vista previa del plan → **Simular** (no cambia nada) o 
   `data/capabilities.json`.
 - En **Alijo**, cada ítem tiene un botón de candado para probar con uno solo.
 
-## 7. Modos de prueba (no tocan tu cuenta)
+## 7. Equipar (`/gear`)
+
+Filtra tus armas (alijo y personajes) por lo que necesites para una actividad y equípalas desde la app.
+
+- **Tres ranuras separadas:** Ranura 1 (cinética), Ranura 2 (energía) y Ranura 3 (pesada). Arriba ves lo que el
+  personaje lleva equipado ahora; al elegir un arma se marca en qué ranura irá y a qué arma reemplaza.
+- **Filtro por campeón** (Barrera, Imparable, Sobrecarga), además de tipo, elemento, ubicación y nombre. Un arma
+  puede romper a un campeón por tres vías: de serie, por un rasgo que lleva (el texto dice «Efectivo contra
+  [Aturdimiento]...») o por una **ventaja de artefacto activa** de ese personaje para su tipo de arma. Las que lo
+  harían *si activaras* una ventaja aparecen con una etiqueta discontinua y «?».
+- **Equipar:** si el arma está en el alijo o en otro personaje, se trae antes (pasando por el alijo). Se avisa antes
+  de ejecutar si no hay hueco libre o si ya llevas otra exótica (el juego solo permite una). Solo funciona en una
+  zona social, en órbita o sin conexión: en una actividad, Bungie lo rechaza y la app lo explica.
+- Cada paso queda en el registro de auditoría y se puede **Deshacer** (vuelve a equipar lo anterior).
+- **Diagnóstico:** `https://localhost:3000/api/dev/champions` (con sesión, solo fuera de producción) contrasta la
+  detección con tu cuenta; sirve para comprobar si el `breakerType` de la instancia ya incluye el artefacto.
+
+## 8. Modos de prueba (no tocan tu cuenta)
 
 | Modo | Cómo | Qué hace |
 | --- | --- | --- |
@@ -120,7 +137,7 @@ Cada acción pasa por: vista previa del plan → **Simular** (no cambia nada) o 
 | Datos de ejemplo en el análisis | `CLASSIFY_SIMULATION=1` | `/cleanup` usa los datos de `fixtures/`. |
 | Tamaño de tanda | `ACTIONS_MAX_ITEMS_PER_RUN=1..500` | Cambia el tope de ítems por tanda/ronda (por defecto 50). |
 
-## 8. Tests
+## 9. Tests
 
 ```
 npm test        # Vitest: reglas, perfil, planificador, cola, ejecución, deshacer y panel

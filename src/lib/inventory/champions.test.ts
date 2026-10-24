@@ -100,6 +100,11 @@ describe("ventajas de artefacto: interpretar el nombre", () => {
     expect(parseArtifactPerk("Cosa rara imparable", WEAPON_TYPES)).toBeNull(); // tipo de arma inexistente
   });
 
+  it("si la lista de tipos trae un nombre repetido, no se adivina", () => {
+    expect(parseArtifactPerk("Arco imparable", ["Arco de combate", "Arco de combate"])).toBeNull();
+    expect(parseArtifactPerk("Pistola imparable", ["Pistola", "Pistola"])).toBeNull();
+  });
+
   it("un prefijo ambiguo no se adivina", () => {
     expect(parseArtifactPerk("Fusil imparable", WEAPON_TYPES)).toBeNull(); // hay muchos «Fusil de ...»
   });
