@@ -17,6 +17,8 @@ export interface SlimItemDef {
   socketCategories: { categoryHash: number; socketIndexes: number[] }[];
   /** DestinyBreakerType propio del ítem (1 barrera, 2 sobrecarga, 3 imparable); ausente si no tiene. */
   breakerType?: number;
+  /** DestinyAmmunitionType del arma (1 principal, 2 especial, 3 pesada); ausente si no es un arma. */
+  ammoType?: number;
 }
 
 export interface SlimStatDef {
@@ -38,7 +40,7 @@ export interface SlimSocketTypeDef {
 }
 
 /** Sube cuando cambia la forma de `Manifest`: una caché con otro esquema se descarga de nuevo. */
-export const MANIFEST_SCHEMA = 3;
+export const MANIFEST_SCHEMA = 4;
 
 export interface SlimBucketDef {
   hash: number;

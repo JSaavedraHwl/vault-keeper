@@ -56,6 +56,21 @@ describe("normalizeItem: elemento y capacidad contra campeones", () => {
     expect(item.champions).toEqual([{ type: "unstoppable", via: ["item", "instance"] }]);
   });
 
+  it("la munición sale de la definición del arma (1 principal, 2 especial, 3 pesada)", () => {
+    const withAmmo = (ammoType?: number) =>
+      ({ ...manifest, items: { ...manifest.items, 100: { ...manifest.items[100], ...(ammoType !== undefined && { ammoType }) } } }) as unknown as Manifest;
+    expect(normalizeItem(component(100), profile(), withAmmo(1))?.ammo).toBe("primary");
+    expect(normalizeItem(component(100), profile(), withAmmo(2))?.ammo).toBe("special");
+    expect(normalizeItem(component(100), profile(), withAmmo(3))?.ammo).toBe("heavy");
+    expect(normalizeItem(component(100), profile(), withAmmo())?.ammo).toBeUndefined();
+    expect(normalizeItem(component(100), profile(), withAmmo(9))?.ammo).toBeUndefined();
+  });
+
+  it("los ítems que no son armas no llevan munición", () => {
+    const m = { ...manifest, items: { ...manifest.items, 300: { ...manifest.items[100], hash: 300, itemType: 2, ammoType: 1 } } } as unknown as Manifest;
+    expect(normalizeItem(component(300), profile(), m)?.ammo).toBeUndefined();
+  });
+
   it("un plug deshabilitado no cuenta", () => {
     const p = profile({ plugs: [200] });
     (p.itemComponents!.sockets!.data!["inst-1"].sockets[0] as { isEnabled: boolean }).isEnabled = false;

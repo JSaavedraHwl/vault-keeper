@@ -20,6 +20,8 @@ export interface NormalizedItem {
   gearTier?: number;
   /** Elemento del arma («Solar», «Vacío»...), tal como lo llama el juego. */
   element?: string;
+  /** Tipo de munición del arma. No depende de la ranura: hay armas de munición especial en la 1.ª y la 2.ª. */
+  ammo?: Ammo;
   /**
    * Capacidad PROPIA del arma contra campeones (de serie, por un rasgo que lleva o según la instancia).
    * No incluye las ventajas de artefacto, que dependen del personaje (ver `championStatus`).
@@ -44,6 +46,14 @@ export interface NormalizedItem {
 }
 
 import type { ChampionCap } from "./champions";
+
+export type Ammo = "primary" | "special" | "heavy";
+
+export const AMMO_LABELS: Record<Ammo, string> = { primary: "Principal", special: "Especial", heavy: "Pesada" };
+export const AMMO_ORDER: readonly Ammo[] = ["primary", "special", "heavy"];
+
+/** Valor del enum DestinyAmmunitionType de la API → munición. */
+export const AMMO_BY_TYPE: Record<number, Ammo> = { 1: "primary", 2: "special", 3: "heavy" };
 
 /** Un personaje de la cuenta y el espacio libre que tiene por ranura. */
 export interface CharacterInfo {

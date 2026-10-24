@@ -53,6 +53,7 @@ function slimItem(d: DestinyInventoryItemDefinition): SlimItemDef | null {
       socketIndexes: c.socketIndexes,
     })),
     ...(d.breakerType ? { breakerType: d.breakerType } : {}),
+    ...(d.equippingBlock?.ammoType ? { ammoType: d.equippingBlock.ammoType } : {}),
   };
 }
 

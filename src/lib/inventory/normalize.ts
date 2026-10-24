@@ -10,7 +10,7 @@ import {
   PERK_SOCKET_CATEGORIES,
   SLOT_BY_BUCKET,
 } from "./constants";
-import type { ItemTier, NormalizedItem } from "./types";
+import { AMMO_BY_TYPE, type ItemTier, type NormalizedItem } from "./types";
 
 const BUNGIE_ORIGIN = "https://www.bungie.net";
 
@@ -111,6 +111,7 @@ export function normalizeItem(
     power: instance?.primaryStat?.value ?? null,
     ...(instance?.gearTier !== undefined && { gearTier: instance.gearTier }),
     ...(element && { element }),
+    ...(kind === "weapon" && def.ammoType && AMMO_BY_TYPE[def.ammoType] && { ammo: AMMO_BY_TYPE[def.ammoType] }),
     ...(champions && { champions }),
     classType: kind === "armor" ? (CLASSES[def.classType] ?? null) : null,
     perks,

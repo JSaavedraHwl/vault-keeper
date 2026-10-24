@@ -91,6 +91,23 @@ describe("pantalla Equipar", () => {
     expect(k).toContain("Barrera?"); // potencial, borde discontinuo
   });
 
+  it("ofrece el filtro de munición y muestra la munición de cada arma", () => {
+    const withAmmo: GearData = {
+      ...data,
+      items: [
+        weapon("kinetic", "Escopeta K", { ammo: "special", type: "Escopeta" }),
+        weapon("energy", "Pulsos E", { ammo: "primary" }),
+        weapon("power", "Cohete P", { ammo: "heavy", type: "Lanzacohetes" }),
+      ],
+    };
+    const out = html(withAmmo);
+    expect(out).toContain("Toda la munición");
+    for (const o of ["Munición principal", "Munición especial", "Munición pesada"]) expect(out).toContain(o);
+    expect(column(out, "Ranura 1 · Cinética")).toContain(">Especial<");
+    expect(column(out, "Ranura 2 · Energía")).toContain(">Principal<");
+    expect(column(out, "Ranura 3 · Pesada")).toContain(">Pesada<");
+  });
+
   it("ofrece los tres filtros de campeón, el de potenciales y los demás", () => {
     const out = html();
     for (const label of ["Barrera", "Imparable", "Sobrecarga"]) expect(out).toContain(label);

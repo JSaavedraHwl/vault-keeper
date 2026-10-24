@@ -22,7 +22,13 @@ import {
   type GearRow,
   type WeaponSlot,
 } from "@/lib/inventory/gear-filter";
-import type { CharacterInfo, ItemTier, NormalizedItem } from "@/lib/inventory/types";
+import { AMMO_LABELS, AMMO_ORDER, type Ammo, type CharacterInfo, type ItemTier, type NormalizedItem } from "@/lib/inventory/types";
+
+const AMMO_STYLES: Record<Ammo, string> = {
+  primary: "border-zinc-300 text-zinc-200",
+  special: "border-green-500 text-green-300",
+  heavy: "border-purple-400 text-purple-300",
+};
 
 const CLASS_LABELS: Record<CharacterInfo["classType"], string> = { titan: "Titán", hunter: "Cazador", warlock: "Hechicero" };
 
@@ -105,7 +111,7 @@ export function GearView({ data }: { data: GearData }) {
   const activeChampionPerks = artifact.perks.filter((p) => activePerks.has(p.hash));
   const label = (id?: string) => CLASS_LABELS[characters.find((c) => c.id === id)?.classType ?? "titan"];
   const total = WEAPON_SLOT_ORDER.reduce((n, s) => n + rows[s].length, 0);
-  const filtering = filters.champions.length > 0 || filters.type || filters.element || filters.query || filters.where !== "all";
+  const filtering = filters.champions.length > 0 || filters.type || filters.element || filters.ammo || filters.query || filters.where !== "all";
 
   const toggleChampion = (c: Champion) =>
     setFilters((f) => ({ ...f, champions: f.champions.includes(c) ? f.champions.filter((x) => x !== c) : [...f.champions, c] }));
@@ -237,6 +243,10 @@ export function GearView({ data }: { data: GearData }) {
           <select value={filters.element} onChange={(e) => setFilters((f) => ({ ...f, element: e.target.value }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Elemento">
             <option value="">Todos los elementos</option>
             {elements.map((t) => <option key={t}>{t}</option>)}
+          </select>
+          <select value={filters.ammo} onChange={(e) => setFilters((f) => ({ ...f, ammo: e.target.value as GearFilters["ammo"] }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Munición">
+            <option value="">Toda la munición</option>
+            {AMMO_ORDER.map((a) => <option key={a} value={a}>Munición {AMMO_LABELS[a].toLowerCase()}</option>)}
           </select>
           <select value={filters.where} onChange={(e) => setFilters((f) => ({ ...f, where: e.target.value as GearFilters["where"] }))} className="rounded border border-zinc-600 bg-zinc-950 px-2 py-1" aria-label="Ubicación">
             <option value="all">Todas las ubicaciones</option>
@@ -419,8 +429,13 @@ function SlotColumn(props: {
                       <span className="truncate text-sm font-semibold">{item.name}</span>
                       {item.power !== null && <span className="font-mono text-xs text-yellow-300">{item.power}</span>}
                     </div>
-                    <p className="text-xs text-zinc-400">
-                      {item.type}{item.element ? ` · ${item.element}` : ""}
+                    <p className="flex flex-wrap items-center gap-1 text-xs text-zinc-400">
+                      <span>{item.type}{item.element ? ` · ${item.element}` : ""}</span>
+                      {item.ammo && (
+                        <span title={`Munición ${AMMO_LABELS[item.ammo].toLowerCase()}`} className={`rounded border px-1 text-[10px] ${AMMO_STYLES[item.ammo]}`}>
+                          {AMMO_LABELS[item.ammo]}
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-zinc-500">
                       {item.location === "vault" ? "En el alijo" : `${props.label(item.characterId)}${item.equipped ? " · equipada" : ""}`}

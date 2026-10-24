@@ -6,7 +6,7 @@ import {
   type Champion,
   type ChampionStatus,
 } from "./champions";
-import type { CharacterInfo, ItemSlot, NormalizedItem } from "./types";
+import type { Ammo, CharacterInfo, ItemSlot, NormalizedItem } from "./types";
 
 export type WeaponSlot = Extract<ItemSlot, "kinetic" | "energy" | "power">;
 export const WEAPON_SLOT_ORDER: readonly WeaponSlot[] = ["kinetic", "energy", "power"];
@@ -25,6 +25,8 @@ export interface GearFilters {
   includePotential: boolean;
   type: string;
   element: string;
+  /** Tipo de munición; "" = cualquiera. */
+  ammo: Ammo | "";
   where: "all" | "vault" | "selected" | "others";
   query: string;
 }
@@ -34,6 +36,7 @@ export const NO_FILTERS: GearFilters = {
   includePotential: true,
   type: "",
   element: "",
+  ammo: "",
   where: "all",
   query: "",
 };
@@ -61,6 +64,7 @@ const normalize = (s: string) =>
 export function evaluate(item: NormalizedItem, ctx: GearContext, f: GearFilters): GearRow | null {
   if (f.type && item.type !== f.type) return null;
   if (f.element && item.element !== f.element) return null;
+  if (f.ammo && item.ammo !== f.ammo) return null;
   if (f.query.trim() && !normalize(item.name).includes(normalize(f.query.trim()))) return null;
 
   const isHere = item.location === "character" && item.characterId === ctx.characterId;

@@ -115,6 +115,47 @@ describe("otros filtros", () => {
   });
 });
 
+describe("filtro por munición", () => {
+  const items = [
+    gun("kinetic", { name: "Principal cinética", ammo: "primary" }),
+    gun("kinetic", { name: "Especial cinética", ammo: "special", type: "Escopeta" }),
+    gun("energy", { name: "Especial energía", ammo: "special", type: "Fusil de francotirador" }),
+    gun("energy", { name: "Principal energía", ammo: "primary" }),
+    gun("power", { name: "Pesada", ammo: "heavy", type: "Lanzacohetes" }),
+    gun("power", { name: "Sin dato de munición" }),
+  ];
+  const names = (ammo: GearFilters["ammo"]) => {
+    const out = filterGear(items, ctx(), f({ ammo }));
+    return [...out.kinetic, ...out.energy, ...out.power].map((r) => r.item.name).sort();
+  };
+
+  it("sin filtro de munición no se descarta nada", () => {
+    expect(names("")).toHaveLength(6);
+  });
+
+  it("especial: encuentra las de la 1.ª y de la 2.ª ranura (la munición no depende de la ranura)", () => {
+    expect(names("special")).toEqual(["Especial cinética", "Especial energía"]);
+    const out = filterGear(items, ctx(), f({ ammo: "special" }));
+    expect(out.kinetic).toHaveLength(1);
+    expect(out.energy).toHaveLength(1);
+    expect(out.power).toHaveLength(0);
+  });
+
+  it("principal y pesada", () => {
+    expect(names("primary")).toEqual(["Principal cinética", "Principal energía"]);
+    expect(names("heavy")).toEqual(["Pesada"]);
+  });
+
+  it("un arma sin dato de munición no pasa un filtro de munición concreto", () => {
+    expect(names("heavy")).not.toContain("Sin dato de munición");
+  });
+
+  it("se combina con los demás filtros", () => {
+    const out = filterGear(items, ctx(), f({ ammo: "special", type: "Escopeta" }));
+    expect([...out.kinetic, ...out.energy].map((r) => r.item.name)).toEqual(["Especial cinética"]);
+  });
+});
+
 describe("equipar: ranura, reemplazo y conflictos", () => {
   const char = (free: Partial<Record<ItemSlot, number>> = { kinetic: 3, energy: 3, power: 3 }) => ({ id: "c1", free });
   const equipped = (slot: ItemSlot, over: Partial<NormalizedItem> = {}) =>
