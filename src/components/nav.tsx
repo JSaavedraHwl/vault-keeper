@@ -7,6 +7,7 @@ import { Emblem } from "./emblem";
 const LINKS = [
   { href: "/vault", label: "Alijo", match: (p: string) => p === "/vault" },
   { href: "/gear", label: "Equipar", match: (p: string) => p === "/gear" },
+  { href: "/loadouts", label: "Loadouts", match: (p: string) => p === "/loadouts" },
   { href: "/cleanup", label: "Limpieza", match: (p: string) => p === "/cleanup" },
   { href: "/cleanup/profile", label: "Perfil de uso", match: (p: string) => p === "/cleanup/profile" },
 ] as const;

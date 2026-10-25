@@ -48,3 +48,5 @@ Marca con ✅ lo que se vaya haciendo.
 - ✅ Clasificación por reglas, perfil de uso, correcciones manuales y limpieza (fase 2).
 - ✅ Acciones reales: bloquear, mover, equipar, mandar al inventario y deshacer (fase 3).
 - ✅ Equipar con filtros de campeón, munición y elemento, y rediseño visual.
+- ✅ Loadouts con armas y armaduras: crear, guardar lo que llevas puesto, editar, equipar de una vez y deshacer
+  (sin subclase, aspectos ni fragmentos: ver más arriba).

@@ -125,8 +125,26 @@ Filtra tus armas (alijo y personajes) por lo que necesites para una actividad y 
   de ejecutar si no hay hueco libre o si ya llevas otra exótica (el juego solo permite una). Solo funciona en una
   zona social, en órbita o sin conexión: en una actividad, Bungie lo rechaza y la app lo explica.
 - Cada paso queda en el registro de auditoría y se puede **Deshacer** (vuelve a equipar lo anterior).
+- Los **loadouts** (guardar y equipar un conjunto completo, con armaduras) están en su propia pantalla, más abajo.
 - **Diagnóstico:** `https://localhost:3000/api/dev/champions` (con sesión, solo fuera de producción) contrasta la
   detección con tu cuenta; sirve para comprobar si el `breakerType` de la instancia ya incluye el artefacto.
+
+### Loadouts (`/loadouts`)
+
+Un loadout es un conjunto con nombre (3 armas + 5 piezas de armadura) para una actividad, guardado en
+`data/loadouts.json` (ignorado por git).
+
+- **Crear:** «Nuevo loadout» (eliges pieza por ranura, con buscador), o **«Guardar lo que llevo puesto»** para copiar
+  el equipo actual de un personaje. Se puede editar y borrar.
+- **Equipar de una vez:** elige el personaje y pulsa «Equipar». Un loadout vale para **cualquier personaje de su
+  clase**. La barra inferior muestra qué hará con cada ranura (ya puesta, del alijo, de otro personaje, ya no existe...).
+- **Reglas que se comprueban antes:** una sola exótica de arma y una sola de armadura (contando lo que ya llevas en
+  las ranuras que el loadout no toca); la clase de la armadura; hueco libre para traer cada pieza. Las piezas que ya
+  no existen (p. ej. desmanteladas) se omiten y se avisa, en vez de fallar a medias.
+- **El orden importa:** las exóticas se equipan al final, para que la exótica que se reemplaza ya se haya quitado.
+- Como el resto de acciones: el servidor recalcula el plan con datos frescos, queda en la auditoría y se puede
+  **Deshacer**. Solo funciona en una zona social, en órbita o sin conexión.
+- **Fuera de alcance por ahora:** la subclase, los aspectos y los fragmentos (ver `docs/pendientes.md`).
 
 ## 8. Modos de prueba (no tocan tu cuenta)
 
@@ -149,7 +167,7 @@ paneles, tipografía condensada (Barlow Condensed) para titulares y botones, y l
   del juego en `src/lib/ui/theme.ts`.
 - **No uses `transform` en un contenedor de página**: convierte a ese contenedor en el bloque de los elementos
   `position: fixed` (la barra de selección de Equipar dejaría de quedar pegada abajo).
-- **Vista previa sin sesión** (solo desarrollo): `https://localhost:3000/dev/preview?view=gear|gear-selected|vault|cleanup|profile`
+- **Vista previa sin sesión** (solo desarrollo): `https://localhost:3000/dev/preview?view=gear|gear-selected|vault|cleanup|profile|loadouts|loadouts-equip|loadouts-editor`
   muestra cada pantalla con datos realistas del manifest. No existe en producción.
 
 ## 10. Tests

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { EquipResult, type Equipping } from "@/components/equip-result";
 import type { EquipOutcome } from "@/lib/actions/equip-service";
 import type { ActionsError } from "@/lib/actions/events";
 import {
@@ -25,6 +25,7 @@ import {
 import { AMMO_LABELS, AMMO_ORDER, type CharacterInfo, type NormalizedItem } from "@/lib/inventory/types";
 import { ElementMark, ItemIcon } from "@/components/item-bits";
 import { AMMO_COLORS, CHAMPION_COLORS } from "@/lib/ui/theme";
+import { useFreshness } from "@/lib/ui/use-freshness";
 
 const CLASS_LABELS: Record<CharacterInfo["classType"], string> = { titan: "Titán", hunter: "Cazador", warlock: "Hechicero" };
 
@@ -37,16 +38,9 @@ const VIA_LABELS: Record<ChampionVia, string> = {
 
 const SLOT_NUMERAL: Record<WeaponSlot, string> = { kinetic: "I", energy: "II", power: "III" };
 
-type Equipping =
-  | { state: "idle" }
-  | { state: "running"; dryRun: boolean }
-  | { state: "done"; outcome: EquipOutcome }
-  | { state: "error"; error: ActionsError };
-
 export function GearView({ data, initialSelectedId }: { data: GearData; initialSelectedId?: string }) {
-  const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
   const { items, characters, artifact } = data;
+  const { age, reload, refreshing } = useFreshness(data.generatedAt);
 
   const [characterId, setCharacterId] = useState(characters[0]?.id ?? "");
   const [filters, setFilters] = useState<GearFilters>(NO_FILTERS);
@@ -54,32 +48,6 @@ export function GearView({ data, initialSelectedId }: { data: GearData; initialS
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
   const [equipping, setEquipping] = useState<Equipping>({ state: "idle" });
   const [simulateOnly, setSimulateOnly] = useState(false);
-
-  // El juego sigue cambiando mientras tanto: se muestra la antigüedad de los datos y se releen solos
-  // al volver a esta pestaña (p. ej. tras cambiar algo dentro del juego).
-  const [now, setNow] = useState(() => Date.parse(data.generatedAt));
-  const generatedAtRef = useRef(Date.parse(data.generatedAt));
-  useEffect(() => {
-    generatedAtRef.current = Date.parse(data.generatedAt);
-  }, [data.generatedAt]);
-  useEffect(() => {
-    const tick = setInterval(() => setNow(Date.now()), 5000);
-    return () => clearInterval(tick);
-  }, []);
-  const reload = useCallback(() => startRefresh(() => router.refresh()), [router]);
-  useEffect(() => {
-    const onBack = () => {
-      if (document.visibilityState === "visible" && Date.now() - generatedAtRef.current > 15_000) reload();
-    };
-    window.addEventListener("focus", onBack);
-    document.addEventListener("visibilitychange", onBack);
-    return () => {
-      window.removeEventListener("focus", onBack);
-      document.removeEventListener("visibilitychange", onBack);
-    };
-  }, [reload]);
-  const ageSeconds = Math.max(0, Math.round((now - Date.parse(data.generatedAt)) / 1000));
-  const age = ageSeconds < 60 ? `${ageSeconds < 5 ? "ahora mismo" : `hace ${ageSeconds} s`}` : `hace ${Math.round(ageSeconds / 60)} min`;
 
   const character = characters.find((c) => c.id === characterId);
   const activePerks = useMemo(() => new Set(character?.activeArtifactPerks ?? []), [character]);
@@ -134,7 +102,7 @@ export function GearView({ data, initialSelectedId }: { data: GearData; initialS
       const failure = lines.find((l) => l.type === "error");
       if (failure) return setEquipping({ state: "error", error: failure as ActionsError });
       setEquipping({ state: "idle" });
-      startRefresh(() => router.refresh());
+      reload();
     } catch (err) {
       setEquipping({ state: "error", error: { kind: "other", message: err instanceof Error ? err.message : "Error desconocido." } });
     }
@@ -322,44 +290,10 @@ export function GearView({ data, initialSelectedId }: { data: GearData; initialS
             </div>
           </div>
 
-          <Result equipping={equipping} onUndo={undo} />
+          <EquipResult equipping={equipping} onUndo={undo} />
         </aside>
       )}
     </main>
-  );
-}
-
-function Result({ equipping, onUndo }: { equipping: Equipping; onUndo: () => void }) {
-  if (equipping.state === "error") {
-    return (
-      <div className="mx-auto mt-3 max-w-7xl border border-red-500/60 bg-red-950/40 p-3 text-sm text-red-200" role="alert">
-        {equipping.error.message}
-        {equipping.error.kind === "expired" && <a href="/api/auth/login" className="link ml-2">Iniciar sesión</a>}
-      </div>
-    );
-  }
-  if (equipping.state !== "done") return null;
-  const { outcome } = equipping;
-  if (outcome.blocked) {
-    return <div className="mx-auto mt-3 max-w-7xl border border-yellow-500/60 bg-yellow-950/40 p-3 text-sm text-yellow-100">{outcome.blocked.join(" ")}</div>;
-  }
-  return (
-    <div className={`mx-auto mt-3 max-w-7xl border p-3 text-sm ${outcome.ok ? "border-green-500/60 bg-green-950/30 text-green-100" : "border-red-500/60 bg-red-950/40 text-red-100"}`} role="status">
-      <p className="display text-base">
-        {outcome.dryRun ? "Simulación: no se cambió nada." : outcome.ok ? "Listo: arma equipada." : "No se pudo completar."}
-      </p>
-      <ul className="mt-1 space-y-0.5 text-xs">
-        {outcome.steps.map((s, i) => (
-          <li key={i}>
-            {s.ok ? "✓" : "✗"} {s.name} <span className="text-zinc-400">· {s.what}</span>
-            {s.error && <span> — {s.error.message}</span>}
-          </li>
-        ))}
-      </ul>
-      {!outcome.dryRun && outcome.steps.some((s) => s.ok && !s.skipped) && (
-        <button onClick={onUndo} className="btn btn-sm mt-2.5">Deshacer</button>
-      )}
-    </div>
   );
 }
 

@@ -7,6 +7,7 @@ import { DEFAULT_PROFILE } from "../classify/profile";
 import { artifactChampionPerks, detectChampions } from "../inventory/champions";
 import { weaponTypesOf, type GearData } from "../inventory/gear";
 import { SLOT_BY_BUCKET } from "../inventory/constants";
+import type { Loadout } from "../loadouts/types";
 import type { Ammo, CharacterInfo, ItemTier, NormalizedItem } from "../inventory/types";
 import { getManifest, type Manifest } from "../manifest";
 import type { SlimItemDef } from "../manifest/types";
@@ -130,6 +131,66 @@ export async function previewGear(): Promise<GearData> {
       activeArtifactPerks: i === 0 ? active : [],
     })),
     artifact: { name: manifest.artifact?.name, perks, unparsed },
+  };
+}
+
+/** Armas y armaduras (con ranuras de equipo variadas) y tres loadouts de ejemplo, para la pantalla de loadouts. */
+export async function previewLoadouts(): Promise<{ data: GearData; loadouts: Loadout[] }> {
+  const manifest = await getManifest();
+  const r = rng(13);
+  const weapons = pick(manifest, true, 36, 51).map((d, i) => toItem(d, i, r, manifest));
+  const armor = pick(manifest, false, 90, 61).map((d, i) => toItem(d, 200 + i, r, manifest));
+  const items = [...weapons, ...armor];
+
+  const characters = [
+    { id: "pv-warlock", classType: "warlock", light: 2012 },
+    { id: "pv-titan", classType: "titan", light: 1996 },
+    { id: "pv-hunter", classType: "hunter", light: 2003 },
+  ] as const;
+  const classOf = (c: (typeof characters)[number]["classType"]) => c;
+
+  // Equipado en el hechicero: una pieza por ranura (la armadura, de su clase).
+  const slots = ["kinetic", "energy", "power", "helmet", "arms", "chest", "legs", "classItem"] as const;
+  for (const slot of slots) {
+    const w = items.find((i) => i.slot === slot && i.location === "vault" && (i.kind === "weapon" || i.classType === classOf("warlock")));
+    if (w) Object.assign(w, { location: "character", characterId: characters[0].id, equipped: true, tier: "legendary" as ItemTier });
+  }
+
+  const find = (slot: (typeof slots)[number], cls: string | null, exotic = false) =>
+    items.find((i) => i.slot === slot && i.location === "vault" && (cls === null || i.classType === cls) && (i.tier === "exotic") === exotic);
+  const ref = (i?: NormalizedItem) => (i ? { id: i.id, hash: i.hash, name: i.name, icon: i.icon, tier: i.tier } : undefined);
+  const build = (name: string, classType: "titan" | "hunter" | "warlock", notes: string, pieces: [(typeof slots)[number], NormalizedItem | undefined][]): Loadout => ({
+    id: `pv-${name}`,
+    name,
+    classType,
+    notes,
+    items: Object.fromEntries(pieces.flatMap(([s, i]) => (i ? [[s, ref(i)]] : []))),
+    createdAt: "2026-10-01T00:00:00Z",
+    updatedAt: "2026-10-20T00:00:00Z",
+  });
+
+  const loadouts = [
+    build("Grandmaster – Barrera", "warlock", "Fusil antibarrera y exótica para el jefe final.", [
+      ["kinetic", find("kinetic", null)], ["energy", find("energy", null, true)], ["power", find("power", null)],
+      ["helmet", find("helmet", "warlock", true)], ["arms", find("arms", "warlock")], ["chest", find("chest", "warlock")],
+      ["legs", find("legs", "warlock")], ["classItem", find("classItem", "warlock")],
+    ]),
+    build("PvP rápido", "warlock", "", [["kinetic", find("kinetic", null)], ["energy", find("energy", null)], ["helmet", find("helmet", "warlock")]]),
+    build("Incursión – Titán", "titan", "Para el equipo de la incursión.", [
+      ["kinetic", find("kinetic", null)], ["power", find("power", null)], ["chest", find("chest", "titan")], ["legs", find("legs", "titan")],
+    ]),
+  ];
+
+  const types = weaponTypesOf(manifest);
+  const { perks, unparsed } = artifactChampionPerks(manifest.artifact?.perkHashes ?? [], manifest.items, types);
+  return {
+    data: {
+      generatedAt: new Date().toISOString(),
+      items,
+      characters: characters.map((c, i) => ({ ...c, free: Object.fromEntries(slots.map((s) => [s, 6 - i])), activeArtifactPerks: [] })),
+      artifact: { name: manifest.artifact?.name, perks, unparsed },
+    },
+    loadouts,
   };
 }
 
